@@ -23,17 +23,17 @@ Partial Class USBTestingForm
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
         Me.components = New System.ComponentModel.Container()
-        Dim DataGridViewCellStyle12 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
-        Dim DataGridViewCellStyle13 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
-        Dim DataGridViewCellStyle14 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
-        Dim DataGridViewCellStyle21 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
-        Dim DataGridViewCellStyle22 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
-        Dim DataGridViewCellStyle15 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
-        Dim DataGridViewCellStyle16 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
-        Dim DataGridViewCellStyle17 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
-        Dim DataGridViewCellStyle18 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
-        Dim DataGridViewCellStyle19 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
-        Dim DataGridViewCellStyle20 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle1 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle2 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle3 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle10 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle11 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle4 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle5 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle6 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle7 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle8 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
+        Dim DataGridViewCellStyle9 As System.Windows.Forms.DataGridViewCellStyle = New System.Windows.Forms.DataGridViewCellStyle()
         Me.btnClear = New System.Windows.Forms.Button()
         Me.lblCOMPort = New System.Windows.Forms.Label()
         Me.btnConnect = New System.Windows.Forms.Button()
@@ -69,7 +69,7 @@ Partial Class USBTestingForm
         Me.txtSim = New System.Windows.Forms.TextBox()
         Me.btnSimSend = New System.Windows.Forms.Button()
         Me.nudONInterval = New System.Windows.Forms.NumericUpDown()
-        Me.timerMeshON = New System.Windows.Forms.Timer(Me.components)
+        Me.timerGetSensorData = New System.Windows.Forms.Timer(Me.components)
         Me.timerMeshOFF = New System.Windows.Forms.Timer(Me.components)
         Me.lblONInt = New System.Windows.Forms.Label()
         Me.nudOFFInterval = New System.Windows.Forms.NumericUpDown()
@@ -275,14 +275,14 @@ Partial Class USBTestingForm
         Me.dgvDevIDList.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill
         Me.dgvDevIDList.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
         Me.dgvDevIDList.ColumnHeadersVisible = False
-        DataGridViewCellStyle12.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter
-        DataGridViewCellStyle12.BackColor = System.Drawing.SystemColors.Window
-        DataGridViewCellStyle12.Font = New System.Drawing.Font("SimSun", 9.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
-        DataGridViewCellStyle12.ForeColor = System.Drawing.SystemColors.ControlText
-        DataGridViewCellStyle12.SelectionBackColor = System.Drawing.SystemColors.Highlight
-        DataGridViewCellStyle12.SelectionForeColor = System.Drawing.SystemColors.HighlightText
-        DataGridViewCellStyle12.WrapMode = System.Windows.Forms.DataGridViewTriState.[False]
-        Me.dgvDevIDList.DefaultCellStyle = DataGridViewCellStyle12
+        DataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter
+        DataGridViewCellStyle1.BackColor = System.Drawing.SystemColors.Window
+        DataGridViewCellStyle1.Font = New System.Drawing.Font("SimSun", 9.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
+        DataGridViewCellStyle1.ForeColor = System.Drawing.SystemColors.ControlText
+        DataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight
+        DataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText
+        DataGridViewCellStyle1.WrapMode = System.Windows.Forms.DataGridViewTriState.[False]
+        Me.dgvDevIDList.DefaultCellStyle = DataGridViewCellStyle1
         Me.dgvDevIDList.EnableHeadersVisualStyles = False
         Me.dgvDevIDList.ImeMode = System.Windows.Forms.ImeMode.Disable
         Me.dgvDevIDList.Location = New System.Drawing.Point(8, 100)
@@ -292,11 +292,11 @@ Partial Class USBTestingForm
         Me.dgvDevIDList.ReadOnly = True
         Me.dgvDevIDList.RowHeadersVisible = False
         Me.dgvDevIDList.RowHeadersWidthSizeMode = System.Windows.Forms.DataGridViewRowHeadersWidthSizeMode.DisableResizing
-        DataGridViewCellStyle13.BackColor = System.Drawing.Color.White
-        DataGridViewCellStyle13.SelectionBackColor = System.Drawing.Color.WhiteSmoke
-        DataGridViewCellStyle13.SelectionForeColor = System.Drawing.Color.Black
-        DataGridViewCellStyle13.WrapMode = System.Windows.Forms.DataGridViewTriState.[False]
-        Me.dgvDevIDList.RowsDefaultCellStyle = DataGridViewCellStyle13
+        DataGridViewCellStyle2.BackColor = System.Drawing.Color.White
+        DataGridViewCellStyle2.SelectionBackColor = System.Drawing.Color.WhiteSmoke
+        DataGridViewCellStyle2.SelectionForeColor = System.Drawing.Color.Black
+        DataGridViewCellStyle2.WrapMode = System.Windows.Forms.DataGridViewTriState.[False]
+        Me.dgvDevIDList.RowsDefaultCellStyle = DataGridViewCellStyle2
         Me.dgvDevIDList.RowTemplate.Height = 23
         Me.dgvDevIDList.RowTemplate.ReadOnly = True
         Me.dgvDevIDList.ScrollBars = System.Windows.Forms.ScrollBars.Vertical
@@ -315,32 +315,32 @@ Partial Class USBTestingForm
         Me.dgvRecData.AllowUserToResizeColumns = False
         Me.dgvRecData.AllowUserToResizeRows = False
         Me.dgvRecData.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.ColumnHeader
-        DataGridViewCellStyle14.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
-        DataGridViewCellStyle14.BackColor = System.Drawing.SystemColors.Control
-        DataGridViewCellStyle14.Font = New System.Drawing.Font("Consolas", 9.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        DataGridViewCellStyle14.ForeColor = System.Drawing.SystemColors.WindowText
-        DataGridViewCellStyle14.SelectionBackColor = System.Drawing.SystemColors.Highlight
-        DataGridViewCellStyle14.SelectionForeColor = System.Drawing.SystemColors.HighlightText
-        Me.dgvRecData.ColumnHeadersDefaultCellStyle = DataGridViewCellStyle14
+        DataGridViewCellStyle3.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
+        DataGridViewCellStyle3.BackColor = System.Drawing.SystemColors.Control
+        DataGridViewCellStyle3.Font = New System.Drawing.Font("Consolas", 9.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        DataGridViewCellStyle3.ForeColor = System.Drawing.SystemColors.WindowText
+        DataGridViewCellStyle3.SelectionBackColor = System.Drawing.SystemColors.Highlight
+        DataGridViewCellStyle3.SelectionForeColor = System.Drawing.SystemColors.HighlightText
+        Me.dgvRecData.ColumnHeadersDefaultCellStyle = DataGridViewCellStyle3
         Me.dgvRecData.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
         Me.dgvRecData.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.dgvRecDataColDevID, Me.dgvRecDataColDate, Me.dgvRecDataColTime, Me.dgvRecDataColTemp, Me.dgvRecDatacolHumi, Me.dgvRecDatacolPress})
         Me.dgvRecData.Location = New System.Drawing.Point(409, 38)
         Me.dgvRecData.Margin = New System.Windows.Forms.Padding(4)
         Me.dgvRecData.Name = "dgvRecData"
         Me.dgvRecData.ReadOnly = True
-        DataGridViewCellStyle21.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
-        DataGridViewCellStyle21.BackColor = System.Drawing.SystemColors.Control
-        DataGridViewCellStyle21.Font = New System.Drawing.Font("SimSun", 9.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
-        DataGridViewCellStyle21.ForeColor = System.Drawing.SystemColors.WindowText
-        DataGridViewCellStyle21.NullValue = Nothing
-        DataGridViewCellStyle21.SelectionBackColor = System.Drawing.SystemColors.Highlight
-        DataGridViewCellStyle21.SelectionForeColor = System.Drawing.SystemColors.HighlightText
-        DataGridViewCellStyle21.WrapMode = System.Windows.Forms.DataGridViewTriState.[True]
-        Me.dgvRecData.RowHeadersDefaultCellStyle = DataGridViewCellStyle21
+        DataGridViewCellStyle10.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
+        DataGridViewCellStyle10.BackColor = System.Drawing.SystemColors.Control
+        DataGridViewCellStyle10.Font = New System.Drawing.Font("SimSun", 9.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
+        DataGridViewCellStyle10.ForeColor = System.Drawing.SystemColors.WindowText
+        DataGridViewCellStyle10.NullValue = Nothing
+        DataGridViewCellStyle10.SelectionBackColor = System.Drawing.SystemColors.Highlight
+        DataGridViewCellStyle10.SelectionForeColor = System.Drawing.SystemColors.HighlightText
+        DataGridViewCellStyle10.WrapMode = System.Windows.Forms.DataGridViewTriState.[True]
+        Me.dgvRecData.RowHeadersDefaultCellStyle = DataGridViewCellStyle10
         Me.dgvRecData.RowHeadersVisible = False
         Me.dgvRecData.RowHeadersWidthSizeMode = System.Windows.Forms.DataGridViewRowHeadersWidthSizeMode.DisableResizing
-        DataGridViewCellStyle22.Font = New System.Drawing.Font("SimSun", 9.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
-        Me.dgvRecData.RowsDefaultCellStyle = DataGridViewCellStyle22
+        DataGridViewCellStyle11.Font = New System.Drawing.Font("SimSun", 9.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
+        Me.dgvRecData.RowsDefaultCellStyle = DataGridViewCellStyle11
         Me.dgvRecData.RowTemplate.Height = 23
         Me.dgvRecData.Size = New System.Drawing.Size(555, 391)
         Me.dgvRecData.TabIndex = 12
@@ -349,11 +349,11 @@ Partial Class USBTestingForm
         '
         Me.dgvRecDataColDevID.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None
         Me.dgvRecDataColDevID.DataPropertyName = "DevID"
-        DataGridViewCellStyle15.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
-        DataGridViewCellStyle15.Font = New System.Drawing.Font("Calibri", 9.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        DataGridViewCellStyle15.NullValue = Nothing
-        DataGridViewCellStyle15.WrapMode = System.Windows.Forms.DataGridViewTriState.[True]
-        Me.dgvRecDataColDevID.DefaultCellStyle = DataGridViewCellStyle15
+        DataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
+        DataGridViewCellStyle4.Font = New System.Drawing.Font("Calibri", 9.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        DataGridViewCellStyle4.NullValue = Nothing
+        DataGridViewCellStyle4.WrapMode = System.Windows.Forms.DataGridViewTriState.[True]
+        Me.dgvRecDataColDevID.DefaultCellStyle = DataGridViewCellStyle4
         Me.dgvRecDataColDevID.HeaderText = "DevID"
         Me.dgvRecDataColDevID.Name = "dgvRecDataColDevID"
         Me.dgvRecDataColDevID.ReadOnly = True
@@ -364,8 +364,8 @@ Partial Class USBTestingForm
         '
         Me.dgvRecDataColDate.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None
         Me.dgvRecDataColDate.DataPropertyName = "Date"
-        DataGridViewCellStyle16.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
-        Me.dgvRecDataColDate.DefaultCellStyle = DataGridViewCellStyle16
+        DataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
+        Me.dgvRecDataColDate.DefaultCellStyle = DataGridViewCellStyle5
         Me.dgvRecDataColDate.HeaderText = "Date"
         Me.dgvRecDataColDate.Name = "dgvRecDataColDate"
         Me.dgvRecDataColDate.ReadOnly = True
@@ -376,8 +376,8 @@ Partial Class USBTestingForm
         '
         Me.dgvRecDataColTime.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None
         Me.dgvRecDataColTime.DataPropertyName = "Time"
-        DataGridViewCellStyle17.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
-        Me.dgvRecDataColTime.DefaultCellStyle = DataGridViewCellStyle17
+        DataGridViewCellStyle6.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft
+        Me.dgvRecDataColTime.DefaultCellStyle = DataGridViewCellStyle6
         Me.dgvRecDataColTime.HeaderText = "Time"
         Me.dgvRecDataColTime.Name = "dgvRecDataColTime"
         Me.dgvRecDataColTime.ReadOnly = True
@@ -388,8 +388,8 @@ Partial Class USBTestingForm
         '
         Me.dgvRecDataColTemp.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None
         Me.dgvRecDataColTemp.DataPropertyName = "Temp"
-        DataGridViewCellStyle18.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter
-        Me.dgvRecDataColTemp.DefaultCellStyle = DataGridViewCellStyle18
+        DataGridViewCellStyle7.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter
+        Me.dgvRecDataColTemp.DefaultCellStyle = DataGridViewCellStyle7
         Me.dgvRecDataColTemp.HeaderText = "Temp(C)"
         Me.dgvRecDataColTemp.Name = "dgvRecDataColTemp"
         Me.dgvRecDataColTemp.ReadOnly = True
@@ -400,8 +400,8 @@ Partial Class USBTestingForm
         '
         Me.dgvRecDatacolHumi.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None
         Me.dgvRecDatacolHumi.DataPropertyName = "Humi"
-        DataGridViewCellStyle19.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter
-        Me.dgvRecDatacolHumi.DefaultCellStyle = DataGridViewCellStyle19
+        DataGridViewCellStyle8.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter
+        Me.dgvRecDatacolHumi.DefaultCellStyle = DataGridViewCellStyle8
         Me.dgvRecDatacolHumi.HeaderText = "Humi(%)"
         Me.dgvRecDatacolHumi.Name = "dgvRecDatacolHumi"
         Me.dgvRecDatacolHumi.ReadOnly = True
@@ -412,8 +412,8 @@ Partial Class USBTestingForm
         '
         Me.dgvRecDatacolPress.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill
         Me.dgvRecDatacolPress.DataPropertyName = "Press"
-        DataGridViewCellStyle20.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter
-        Me.dgvRecDatacolPress.DefaultCellStyle = DataGridViewCellStyle20
+        DataGridViewCellStyle9.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter
+        Me.dgvRecDatacolPress.DefaultCellStyle = DataGridViewCellStyle9
         Me.dgvRecDatacolPress.HeaderText = "P(kPa)"
         Me.dgvRecDatacolPress.Name = "dgvRecDatacolPress"
         Me.dgvRecDatacolPress.ReadOnly = True
@@ -486,9 +486,9 @@ Partial Class USBTestingForm
         Me.nudONInterval.TabIndex = 36
         Me.nudONInterval.Value = New Decimal(New Integer() {3, 0, 0, 0})
         '
-        'timerMeshON
+        'timerGetSensorData
         '
-        Me.timerMeshON.Interval = 1000
+        Me.timerGetSensorData.Interval = 5000
         '
         'timerMeshOFF
         '
@@ -639,7 +639,7 @@ Partial Class USBTestingForm
     Friend WithEvents txtSim As TextBox
     Friend WithEvents btnSimSend As Button
     Friend WithEvents nudONInterval As NumericUpDown
-    Friend WithEvents timerMeshON As Timer
+    Friend WithEvents timerGetSensorData As Timer
     Friend WithEvents timerMeshOFF As Timer
     Friend WithEvents lblONInt As Label
     Friend WithEvents nudOFFInterval As NumericUpDown

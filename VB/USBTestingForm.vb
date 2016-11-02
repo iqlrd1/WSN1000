@@ -15,6 +15,8 @@ Public Class USBTestingForm
     Const cmdSearch As String = "SEARCH60"
     Dim devIDSearchTime = 60
 
+    Dim meshReadyCurrentTime As Date
+
     '-------Check USB Registry-------
     Const WM_DEVICECHANGE = &H219
     Const DBT_DEVICEARRIVAL = &H8000
@@ -50,8 +52,8 @@ Public Class USBTestingForm
     Dim dtbSensorStatusrow As DataRow
     Dim dtbDevIDList As New DataTable("DevIDList")
     Dim devIDArray() As String
-    Dim getSensorDataCounter As Integer
-    Dim getSensorDataCurrentDevIDArrayCount As Integer
+    Dim getSensorDataCounter As Integer 'counter for each devid get sensor data trial (default 3 times)
+    Dim getSensorDataDevIDArrayPointer As Integer 'pointer, point to the devID array table to indicate the current devid to get data
     '--------------------------------
 
     Dim meshONSecCounter As Integer = 0
@@ -239,7 +241,7 @@ Public Class USBTestingForm
                 nudOFFInterval.Enabled = True
                 nudONInterval.Enabled = True
 
-                timerMeshON.Dispose()
+                timerGetSensorData.Dispose()
                 timerMeshOFF.Dispose()
 
             Case comStatus.comConnecting
@@ -424,7 +426,7 @@ Public Class USBTestingForm
                 nudONInterval.Enabled = False
                 btnAddDevID.Enabled = False
                 getSensorDataCounter = 0
-                getSensorDataCurrentDevIDArrayCount = 0
+                getSensorDataDevIDArrayPointer = 0
             ElseIf btnStartRec.Text = "Stop Rec" Then
                 sendCommand("STPREC")
                 btnStartRec.Text = "Start Rec"
@@ -434,7 +436,7 @@ Public Class USBTestingForm
                 btnClear.Enabled = True
                 btnAddDevID.Enabled = True
                 getSensorDataCounter = 0
-                getSensorDataCurrentDevIDArrayCount = 0
+                getSensorDataDevIDArrayPointer = 0
             End If
         Else
             MsgBox("Please connect to USB dongle")
@@ -497,7 +499,7 @@ Public Class USBTestingForm
                 End If
                 'sendCommand("ON" + CStr(nudONInterval.Value) + "OFF" + CStr(nudOFFInterval.Value))
                 nudONInterval.Enabled = False
-                nudOFFInterval.Enabled = False                
+                nudOFFInterval.Enabled = False
             End If
         Else
             btnSearch.Text = "SEARCH"
@@ -735,10 +737,10 @@ Public Class USBTestingForm
         Try
 
             If mySerialPort.IsOpen = False Then
-            mySerialPort.Open()
-        End If
+                mySerialPort.Open()
+            End If
 
-        While mySerialPort.BytesToRead > 0
+            While mySerialPort.BytesToRead > 0
                 trimSPData(mySerialPort.ReadByte)
             End While
         Catch ex As Exception
@@ -802,7 +804,7 @@ Public Class USBTestingForm
                     drr("Temp") = tempValue
                     drr("timeTemp") = DateTime.Now
                     drr("tempRecCounter") = drr("tempRecCounter") + 1
-                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 120 Then
+                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 180 Then
                         drr("tempRecCounter") = 0
                         drr("humiRecCounter") = 0
                         drr("pressRecCounter") = 0
@@ -827,7 +829,7 @@ Public Class USBTestingForm
                     Console.WriteLine(DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now))
                     Console.WriteLine(drr("humiRecCounter"))
 
-                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 120 Then
+                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 180 Then
                         drr("tempRecCounter") = 0
                         drr("humiRecCounter") = 0
                         drr("pressRecCounter") = 0
@@ -846,7 +848,7 @@ Public Class USBTestingForm
                     drr("Press") = pressValue
                     drr("timePress") = DateTime.Now
                     drr("pressRecCounter") = drr("pressRecCounter") + 1
-                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 120 Then
+                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 180 Then
                         drr("tempRecCounter") = 0
                         drr("humiRecCounter") = 0
                         drr("pressRecCounter") = 0
@@ -918,9 +920,10 @@ Public Class USBTestingForm
 
         End If
 
-        If cmd.StartsWith("$READY") And dtbSensorStatus.Rows.Count > 0 Then 'need to chech if sensors are read from nvm
-            meshONSecCounter = 0
-            timerMeshON.Start()
+        If cmd.StartsWith("$READY") And dtbSensorStatus.Rows.Count > 0 Then 'need to check if sensors are read from nvm
+            'meshONSecCounter = 0
+            timerGetSensorData.Start()
+            meshReadyCurrentTime = DateTime.Now
             timerMeshOFF.Dispose()
 
         End If
@@ -928,10 +931,10 @@ Public Class USBTestingForm
         If cmd.StartsWith("$END") And dtbSensorStatus.Rows.Count > 0 Then 'need to chech if sensors are read from nvm
             meshOFFSecCounter = 0
             timerMeshOFF.Start()
-            timerMeshON.Dispose()
-            meshONSecCounter = 0
+            timerGetSensorData.Dispose()
+            'meshONSecCounter = 0
             getSensorDataCounter = 0
-            getSensorDataCurrentDevIDArrayCount = 0
+            getSensorDataDevIDArrayPointer = 0
         End If
 
         If cmd.StartsWith("REMOVEALLOK") Then
@@ -950,7 +953,7 @@ Public Class USBTestingForm
             btnClear.Enabled = True
             btnAddDevID.Enabled = True
             getSensorDataCounter = 0
-            getSensorDataCurrentDevIDArrayCount = 0
+            getSensorDataDevIDArrayPointer = 0
         End If
 
 
@@ -1000,18 +1003,19 @@ Public Class USBTestingForm
             drr("Press") = 0
             drr("Status") = "OK"
 
-            timerMeshON.Stop()
-            meshONSecCounter = 0
-            If getSensorDataCurrentDevIDArrayCount < devIDArray.Count - 1 Then
-                getSensorDataCurrentDevIDArrayCount += 1
+            timerGetSensorData.Stop()
+            'meshONSecCounter = 0
+            If getSensorDataDevIDArrayPointer < devIDArray.Count - 1 Then
+                getSensorDataDevIDArrayPointer += 1
+                getSensorDataCounter = 0
             Else
-                getSensorDataCurrentDevIDArrayCount = 0
+                getSensorDataDevIDArrayPointer = 0
             End If
-            timerMeshON.Start()
+            timerGetSensorData.Start()
 
-            sendCommand("update tb ok !!!")
+                sendCommand("update tb ok !!!")
 
-        End If
+            End If
     End Sub
 
     Private Sub dgvDevIDList_CellMouseClick(sender As Object, e As DataGridViewCellMouseEventArgs) Handles dgvDevIDList.CellMouseClick
@@ -1056,25 +1060,25 @@ Public Class USBTestingForm
         End Try
     End Sub
 
-    Private Sub timerMeshON_Tick(sender As Object, e As EventArgs) Handles timerMeshON.Tick
-        meshONSecCounter += 1
+    Private Sub timerGetSensorData_Tick(sender As Object, e As EventArgs) Handles timerGetSensorData.Tick
+        'meshONSecCounter += 1
         If btnStartRec.Text = "Stop Rec" Then
-            If meshONSecCounter = 5 Or meshONSecCounter = 1 Then
-                If devIDArray.Count > 0 Then
-                    getSensorDataCounter += 1
-                    If getSensorDataCounter < 3 Then
-                        sendCommand("G" + devIDArray(getSensorDataCurrentDevIDArrayCount))
+            'If meshONSecCounter = 5 Then
+            If devIDArray.Count > 0 Then
+                getSensorDataCounter += 1
+                If getSensorDataCounter < 3 Then
+                    sendCommand("G" + devIDArray(getSensorDataDevIDArrayPointer))
+                Else
+                    getSensorDataCounter = 0
+                    If getSensorDataDevIDArrayPointer < devIDArray.Count - 1 Then
+                        getSensorDataDevIDArrayPointer += 1
                     Else
-                        getSensorDataCounter = 0
-                        meshONSecCounter = 0
-                        If getSensorDataCurrentDevIDArrayCount < devIDArray.Count - 1 Then
-                            getSensorDataCurrentDevIDArrayCount += 1
-                        Else
-                            getSensorDataCurrentDevIDArrayCount = 0
-                        End If
+                        getSensorDataDevIDArrayPointer = 0
                     End If
                 End If
             End If
+            'meshONSecCounter = 0
+            'End If
         End If
     End Sub
 
@@ -1087,14 +1091,14 @@ Public Class USBTestingForm
         Dim duration As Integer = nudONInterval.Value * 60
         Dim devID As String = txtDevIDStat.Text
 
-        If timerMeshON.Enabled = False And timerMeshON.Enabled = False Then
+        If timerGetSensorData.Enabled = False And timerGetSensorData.Enabled = False Then
 
-        ElseIf meshONSecCounter = 0 Then
-            syncTime = duration - meshOFFSecCounter - 2
-            sendCommand("D" + devID + "OFF" + CStr(syncTime))
-        ElseIf meshOFFSecCounter = 0 Then
-            syncTime = duration - meshONSecCounter - 2
-            sendCommand("D" + devID + "ON" + CStr(syncTime))
+            'ElseIf meshONSecCounter = 0 Then
+            '    syncTime = duration - meshOFFSecCounter - 2
+            '     sendCommand("D" + devID + "OFF" + CStr(syncTime))
+            '' ElseIf meshOFFSecCounter = 0 Then
+            '     syncTime = duration - meshONSecCounter - 2
+            '    sendCommand("D" + devID + "ON" + CStr(syncTime))
         End If
 
     End Sub
