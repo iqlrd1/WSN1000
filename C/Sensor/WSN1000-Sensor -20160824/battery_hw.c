@@ -1,4 +1,15 @@
-
+/******************************************************************************
+ *  Copyright Cambridge Silicon Radio Limited 2015
+ *  CSR Bluetooth Low Energy CSRmesh 1.3 Release
+ *  Application version 1.3
+ *
+ *  FILE
+ *    battery_hw.c
+ *
+ * DESCRIPTION
+ *    This file defines routines for reading current Battery level
+ *
+ ******************************************************************************/
 
 /*=============================================================================*
  *  SDK Header Files
