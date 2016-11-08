@@ -1,0 +1,3490 @@
+   1                 		.file	"sensor_bme280.c"
+   2                 		.variant xap2+
+   3                 	
+   4                 		.small
+   5                 	
+   6                 		.section	.debug_abbrev,"",@progbits
+   7                 	.Ldebug_abbrev0:
+   8                 		.section	.debug_info,"",@progbits
+   9                 	.Ldebug_info0:
+  10                 		.section	.debug_line,"",@progbits
+  11                 	.Ldebug_line0:
+  12 0000 00 00 00 00 		.text
+  12      00 02 00 00 
+  12      00 00 01 01 
+  12      FB 0E 0D 00 
+  12      01 01 01 01 
+  13                 	.Ltext0:
+  14                 		.section	.text.BME280_Trigger,"ax",@progbits
+  15                 		.global	BME280_Trigger
+  16                 		.type	BME280_Trigger, @function
+  17                 	BME280_Trigger:
+  18                 	.LFB4:
+  19                 		.file 1 "sensor_bme280.c"
+   0:sensor_bme280.c **** #include "sensor_bme280.h"
+   1:sensor_bme280.c **** #include <spi.h>
+   2:sensor_bme280.c **** #include <debug.h>
+   3:sensor_bme280.c **** #include <types.h>
+   4:sensor_bme280.c **** 
+   5:sensor_bme280.c **** extern void printInDecimal(long val)
+   6:sensor_bme280.c **** {   if(val<0)
+   7:sensor_bme280.c ****     {   DebugWriteChar('-');
+   8:sensor_bme280.c ****         val=-val;
+   9:sensor_bme280.c ****     }
+  10:sensor_bme280.c ****     if(val >= 10)
+  11:sensor_bme280.c ****     {   printInDecimal(val/10);
+  12:sensor_bme280.c ****     }
+  13:sensor_bme280.c ****     DebugWriteChar(('0' + (val%10)));/*自身反复循环嵌套：内层为最高位，外层为最低位*/
+  14:sensor_bme280.c **** }
+  15:sensor_bme280.c **** 
+  16:sensor_bme280.c **** extern void printUnDecimal(long val)
+  17:sensor_bme280.c **** {   
+  18:sensor_bme280.c ****     if(val >= 10)
+  19:sensor_bme280.c ****     {   printInDecimal(val/10);
+  20:sensor_bme280.c ****     }
+  21:sensor_bme280.c ****     DebugWriteChar(('0' + (val%10)));/*自身反复循环嵌套：内层为最高位，外层为最低位*/
+  22:sensor_bme280.c **** }
+  23:sensor_bme280.c **** 
+  24:sensor_bme280.c **** void BME280_Trigger(void)
+  25:sensor_bme280.c **** {
+  20                 		#0x0003
+  21 0000 03 0B       	.LCFI0:
+  22                 		.loc 1 28 0
+  26:sensor_bme280.c ****     bool ret_status;
+  27:sensor_bme280.c ****     ret_status=SpiInit(10,11,4,9);
+  23                 		AL,#0x0004
+  24 0001 04 14       		st	AL,@(0,Y)
+  25 0002 00 27       		ld	AL,#0x0009
+  26 0003 09 14       		st	AL,@(0x0001,Y)
+  27 0004 01 27       		ld	AL,#0x000a
+  28 0005 0A 14       		ld	AH,#0x000b
+  29 0006 0B 10       		bsr	SpiInit
+  30 0007 00 00 00 00 		.loc 1 32 0
+  30      00 9C 
+  28:sensor_bme280.c ****     //MOSI MISO SLK CS#
+  29:sensor_bme280.c **** 
+  30:sensor_bme280.c ****     /*Weather monitoring*/
+  31:sensor_bme280.c ****     SpiWriteRegister(REG_CONFIG &0x7f,0x00);//t_sb:0.5ms,IIR:off,SPI3W_en=0
+  31                 	0x0075
+  32 000a 75 14       		ld	AH,#0x0000
+  33 000b 00 10       		bsr	SpiWriteRegister
+  34 000c 00 00 00 00 		.loc 1 33 0
+  34      00 9C 
+  32:sensor_bme280.c ****     SpiWriteRegister(REG_CTRL_MEAS &0x7f,0x26);//osr_t:x1,osr_p:x1,mode:forced
+  35                 	AL,#0x0074
+  36 000f 74 14       		ld	AH,#0x0026
+  37 0010 26 10       		bsr	SpiWriteRegister
+  38 0011 00 00 00 00 		.loc 1 34 0
+  38      00 9C 
+  33:sensor_bme280.c ****     SpiWriteRegister(REG_CTRL_HUM &0x7f,0x01); //osr_h:x1 
+  39                 	AL,#0x0072
+  40 0014 72 14       		ld	AH,#0x0001
+  41 0015 01 10       		bsr	SpiWriteRegister
+  42 0016 00 00 00 00 		.loc 1 35 0
+  42      00 9C 
+  34:sensor_bme280.c **** }
+  43                 	ve	#0x0003
+  44 0019 03 0F       	.LFE4:
+  45                 		.size	BME280_Trigger, .-BME280_Trigger
+  46                 		.global	__size_of_BME280_Trigger
+  47                 		.equ	__size_of_BME280_Trigger,. - BME280_Trigger
+  48                 		.section	.text.printInDecimal,"ax",@progbits
+  49                 		.global	printInDecimal
+  50                 		.type	printInDecimal, @function
+  51                 	printInDecimal:
+  52                 	.LFB2:
+  53                 		.loc 1 7 0
+   7:sensor_bme280.c **** {   if(val<0)
+  54                 	er	#0x0005
+  55                 	.LCFI1:
+  56 0000 05 0B       		st	AL,@(0x0003,Y)
+  57                 	.LVL1:
+  58 0001 03 27       		st	AH,@(0x0002,Y)
+  59                 	.LVL2:
+  60 0002 02 23       		.loc 1 7 0
+  61                 		bpl	.L4
+   7:sensor_bme280.c **** {   if(val<0)
+  62                 		.loc 1 8 0
+  63 0003 00 00 00 00 		ld	AL,#0x002d
+  63      00 E8 
+   8:sensor_bme280.c ****     {   DebugWriteChar('-');
+  64                 	WriteChar
+  65 0006 2D 14       		.loc 1 9 0
+  66 0007 00 00 00 00 		ld	AL,@(0x0003,Y)
+  66      00 9C 
+   9:sensor_bme280.c ****         val=-val;
+  67                 		AH,@(0x0002,Y)
+  68 000a 03 17       		nadd	AL,#0x0000
+  69 000b 02 13       		xor	AH,#0xffff
+  70 000c 00 74       		addc	AH,#0x0000
+  71 000d FF D0       		st	AL,@(0x0003,Y)
+  72 000e 00 40       	.LVL3:
+  73 000f 03 27       		st	AH,@(0x0002,Y)
+  74                 	.LVL4:
+  75 0010 02 23       	.L4:
+  76                 		.loc 1 11 0
+  77                 		ld	AL,@(0x0002,Y)
+  11:sensor_bme280.c ****     if(val >= 10)
+  78                 	
+  79 0011 02 17       		beq	?LBGT0
+  80 0012 00 00 00 00 		bra	.L10
+  80      00 EC 
+  81 0015 00 00 00 00 	?LBGT0:
+  81      00 F4 
+  82 0018 00 00 00 00 		tst	@$XAP_AL
+  82      00 E0 
+  83                 		bne	.L6
+  84 001b 00 00 00 99 		ld	AH,@(0x0003,Y)
+  85 001d 00 00 00 00 		cmp	AH,#0x000a
+  85      00 F0 
+  86 0020 03 13       		bcs	.L6
+  87 0021 0A 80       	.L10:
+  88 0022 00 00 00 00 		.loc 1 12 0
+  88      00 FC 
+  89                 		ld	AL,#0x0000
+  12:sensor_bme280.c ****     {   printInDecimal(val/10);
+  90                 	Y)
+  91 0025 00 14       		ld	X,#0x000a
+  92 0026 00 27       		st	X,@(0x0001,Y)
+  93 0027 0A 18       		ld	AH,@(0x0003,Y)
+  94 0028 01 2B       		ld	AL,@$XAP_AH
+  95 0029 03 13       		ld	X,@(0x0002,Y)
+  96 002a 00 00 00 15 		ld	AH,@$XAP_UXL
+  97 002c 02 1B       		bsr	__divhi3
+  98 002d 00 00 00 11 		bsr	printInDecimal
+  99 002f 00 00 00 00 	.L6:
+  99      00 9C 
+ 100 0032 00 00 00 00 		.loc 1 14 0
+ 100      00 9C 
+ 101                 		ld	AH,#0x0000
+  14:sensor_bme280.c ****     DebugWriteChar(('0' + (val%10)));/*自身反复循环嵌套：内层为最高位，外层为最低位*/
+ 102                 	)
+ 103 0035 00 10       		ld	AL,#0x000a
+ 104 0036 00 23       		st	AL,@(0x0001,Y)
+ 105 0037 0A 14       		ld	X,@(0x0003,Y)
+ 106 0038 01 27       		ld	AL,@$XAP_UXL
+ 107 0039 03 1B       		ld	X,@(0x0002,Y)
+ 108 003a 00 00 00 15 		ld	AH,@$XAP_UXL
+ 109 003c 02 1B       		bsr	__modhi3
+ 110 003d 00 00 00 11 		add	AL,#0x0030
+ 111 003f 00 00 00 00 		bsr	DebugWriteChar
+ 111      00 9C 
+ 112 0042 30 34       		.loc 1 15 0
+ 113 0043 00 00 00 00 		leave	#0x0005
+ 113      00 9C 
+  15:sensor_bme280.c **** }
+ 114                 	e	printInDecimal, .-printInDecimal
+ 115 0046 05 0F       		.global	__size_of_printInDecimal
+ 116                 		.equ	__size_of_printInDecimal,. - printInDecimal
+ 117                 		.section	.rodata.str2.2,"aMS",@progbits,2
+ 118                 	.LC0:
+ 119                 		.ascii " \000"
+ 120                 	.LC1:
+ 121                 		.ascii "\r\n\000"
+ 122 0000 00 20 00 00 	.LC2:
+ 123                 		.ascii "\241\373ut \000"
+ 124 0002 00 0D 00 0A 	.LC3:
+ 124      00 00 
+ 125                 		.ascii " \241\373up \000"
+ 126 0005 00 A1 00 FB 	.LC4:
+ 126      00 75 00 74 
+ 126      00 20 00 00 
+ 127                 		.ascii "\241\373uh \000"
+ 128 000b 00 20 00 A1 		.section	.text.BME280_Getdata,"ax",@progbits
+ 128      00 FB 00 75 
+ 128      00 70 00 20 
+ 128      00 00 
+ 129                 		.global	BME280_Getdata
+ 130 0012 00 A1 00 FB 		.type	BME280_Getdata, @function
+ 130      00 75 00 68 
+ 130      00 20 00 00 
+ 131                 	BME280_Getdata:
+ 132                 	.LFB6:
+ 133                 		.loc 1 124 0
+ 134                 		enter	#0x0010
+ 135                 	.LCFI2:
+  35:sensor_bme280.c **** 
+  36:sensor_bme280.c **** void BME280_Init(void)
+  37:sensor_bme280.c **** {   
+  38:sensor_bme280.c ****     uint8 chip_id;
+  39:sensor_bme280.c ****     uint8 coeff[33];
+  40:sensor_bme280.c ****     bool ret_status;
+  41:sensor_bme280.c ****     ret_status=SpiInit(10,11,4,9);
+  42:sensor_bme280.c ****     //MOSI MISO SLK CS#
+  43:sensor_bme280.c ****     
+  44:sensor_bme280.c ****     SpiWriteRegister(REG_RESET &0x7f,RESET);//R/W#=0
+  45:sensor_bme280.c ****     /*Weather monitoring*/
+  46:sensor_bme280.c ****     SpiWriteRegister(REG_CONFIG &0x7f,0x00);//t_sb:0.5ms,IIR:off,SPI3W_en=0
+  47:sensor_bme280.c ****     SpiWriteRegister(REG_CTRL_MEAS &0x7f,0x26);//osr_t:x1,osr_p:x1,mode:forced
+  48:sensor_bme280.c ****     SpiWriteRegister(REG_CTRL_HUM &0x7f,0x01); //osr_h:x1
+  49:sensor_bme280.c ****  
+  50:sensor_bme280.c ****     chip_id=SpiReadRegister(REG_CHIPID);
+  51:sensor_bme280.c **** 
+  52:sensor_bme280.c ****     if(chip_id==CHIPID) 
+  53:sensor_bme280.c ****     {   
+  54:sensor_bme280.c ****         DebugWriteUint8(chip_id);DebugWriteString("<-Get chip id\r\n");
+  55:sensor_bme280.c ****         SpiReadRegisterBurst(REG_DIG_T1,coeff,24,FALSE);
+  56:sensor_bme280.c ****         dig_T1=coeff[0]|(((uint16)coeff[1])<<8);//LSBFIRST
+  57:sensor_bme280.c ****         dig_T2=coeff[2]|(((uint16)coeff[3])<<8);
+  58:sensor_bme280.c ****         dig_T3=coeff[4]|(((uint16)coeff[5])<<8);
+  59:sensor_bme280.c ****         dig_P1=coeff[6]|(((uint16)coeff[7])<<8);
+  60:sensor_bme280.c ****         dig_P2=coeff[8]|(((uint16)coeff[9])<<8);
+  61:sensor_bme280.c ****         dig_P3=coeff[10]|(((uint16)coeff[11])<<8);
+  62:sensor_bme280.c ****         dig_P4=coeff[12]|(((uint16)coeff[13])<<8);
+  63:sensor_bme280.c ****         dig_P5=coeff[14]|(((uint16)coeff[15])<<8);
+  64:sensor_bme280.c ****         dig_P6=coeff[16]|(((uint16)coeff[17])<<8);
+  65:sensor_bme280.c ****         dig_P7=coeff[18]|(((uint16)coeff[19])<<8);
+  66:sensor_bme280.c ****         dig_P8=coeff[20]|(((uint16)coeff[21])<<8);
+  67:sensor_bme280.c ****         dig_P9=coeff[22]|(((uint16)coeff[23])<<8);
+  68:sensor_bme280.c **** 
+  69:sensor_bme280.c ****         dig_H1=SpiReadRegister(REG_DIG_H1);               //uint8
+  70:sensor_bme280.c ****         dig_H3=SpiReadRegister(REG_DIG_H3);
+  71:sensor_bme280.c ****         dig_H6=SpiReadRegister(REG_DIG_H6);
+  72:sensor_bme280.c ****         
+  73:sensor_bme280.c ****         SpiReadRegisterBurst(REG_DIG_H2,coeff+24,2,FALSE);//uint16
+  74:sensor_bme280.c ****         dig_H2=coeff[24]|(((uint16)coeff[25])<<8);
+  75:sensor_bme280.c **** 
+  76:sensor_bme280.c ****         coeff[26]=SpiReadRegister(REG_DIG_H4);            //uint12
+  77:sensor_bme280.c ****         SpiReadRegisterBurst(REG_DIG_H5,coeff+27,2,FALSE);
+  78:sensor_bme280.c ****         dig_H4=(((uint16)coeff[26])<<4)|(coeff[27]&0x0f);//MSBFIRST
+  79:sensor_bme280.c ****         //dig_H4=(((uint16)coeff[26])<<8|(coeff[27]<<4))>>4;
+  80:sensor_bme280.c ****         dig_H5=(((uint16)coeff[28])<<4)|((coeff[27]>>4)&0x0f);//LSBFIRST
+  81:sensor_bme280.c ****     }
+  82:sensor_bme280.c ****     printInDecimal(dig_T1);DebugWriteString("←dig_T1 ");
+  83:sensor_bme280.c ****     DebugWriteUint16(dig_T1);DebugWriteString("\r\n");
+  84:sensor_bme280.c ****     printInDecimal(dig_T2);DebugWriteString("←dig_T2 ");
+  85:sensor_bme280.c ****     DebugWriteUint16(dig_T2);DebugWriteString("\r\n");
+  86:sensor_bme280.c ****     printInDecimal(dig_T3);DebugWriteString("←dig_T3 ");
+  87:sensor_bme280.c ****     DebugWriteUint16(dig_T3);DebugWriteString("\r\n");
+  88:sensor_bme280.c ****     
+  89:sensor_bme280.c ****     printInDecimal(dig_P1);DebugWriteString("←dig_P1 ");
+  90:sensor_bme280.c ****     DebugWriteUint16(dig_P1);DebugWriteString("\r\n");    
+  91:sensor_bme280.c ****     printInDecimal(dig_P2);DebugWriteString(" ←dig_P2 ");
+  92:sensor_bme280.c ****     DebugWriteUint16(dig_P2);DebugWriteString("\r\n"); 
+  93:sensor_bme280.c ****     printInDecimal(dig_P3);DebugWriteString("←dig_P3 ");
+  94:sensor_bme280.c ****     DebugWriteUint16(dig_P3);DebugWriteString("\r\n"); 
+  95:sensor_bme280.c ****     printInDecimal(dig_P4);DebugWriteString(" ← dig_P4 ");
+  96:sensor_bme280.c ****     DebugWriteUint16(dig_P4);DebugWriteString("\r\n"); 
+  97:sensor_bme280.c ****     printInDecimal(dig_P5);DebugWriteString(" ←dig_P5 ");
+  98:sensor_bme280.c ****     DebugWriteUint16(dig_P5);DebugWriteString("\r\n"); 
+  99:sensor_bme280.c ****     printInDecimal(dig_P6);DebugWriteString("←dig_P6 ");
+ 100:sensor_bme280.c ****     DebugWriteUint16(dig_P6);DebugWriteString("\r\n");
+ 101:sensor_bme280.c ****     printInDecimal(dig_P7);DebugWriteString("←dig_P7 ");
+ 102:sensor_bme280.c ****     DebugWriteUint16(dig_P7);DebugWriteString("\r\n");
+ 103:sensor_bme280.c ****     printInDecimal(dig_P8);DebugWriteString(" ←dig_P8 ");
+ 104:sensor_bme280.c ****     DebugWriteUint16(dig_P8);DebugWriteString("\r\n");
+ 105:sensor_bme280.c ****     printInDecimal(dig_P9);DebugWriteString(" ←dig_P9 ");    
+ 106:sensor_bme280.c ****     DebugWriteUint16(dig_P9);DebugWriteString("\r\n"); 
+ 107:sensor_bme280.c ****     
+ 108:sensor_bme280.c ****     printInDecimal(dig_H1);DebugWriteString(" ←dig_H1 ");
+ 109:sensor_bme280.c ****     DebugWriteUint16(dig_H1);DebugWriteString("\r\n"); 
+ 110:sensor_bme280.c ****     printInDecimal(dig_H2);DebugWriteString("←dig_H2 ");
+ 111:sensor_bme280.c ****     DebugWriteUint16(dig_H2);DebugWriteString("\r\n"); 
+ 112:sensor_bme280.c ****     printInDecimal(dig_H3);DebugWriteString(" ←dig_H3 ");
+ 113:sensor_bme280.c ****     DebugWriteUint16(dig_H3);DebugWriteString("\r\n");     
+ 114:sensor_bme280.c ****     printInDecimal(dig_H4);DebugWriteString("←dig_H4 ");
+ 115:sensor_bme280.c ****     DebugWriteUint16(dig_H4);DebugWriteString("\r\n"); 
+ 116:sensor_bme280.c ****     printInDecimal(dig_H5);DebugWriteString(" ←dig_H5 ");
+ 117:sensor_bme280.c ****     DebugWriteUint16(dig_H5);DebugWriteString("\r\n"); 
+ 118:sensor_bme280.c ****     printInDecimal(dig_H6);DebugWriteString("← dig_H6 ");
+ 119:sensor_bme280.c ****     DebugWriteUint16(dig_H6);DebugWriteString("\r\n");/**/
+ 120:sensor_bme280.c **** }
+ 121:sensor_bme280.c **** 
+ 122:sensor_bme280.c **** void BME280_Getdata()
+ 123:sensor_bme280.c **** {   
+ 136                 	0x0008
+ 137 0000 10 0B       		st	AL,@(0,Y)
+ 138                 		ld	AL,@$XAP_UY
+ 124:sensor_bme280.c ****     uint8 dat[8]={0,0,0,0,0,0,0,0};uint16 i;
+ 139                 	d	AL,#0x0002
+ 140 0001 08 14       		ld	AH,#0x0000
+ 141 0002 00 27       		bsr	memset
+ 142 0003 00 00 00 15 		.loc 1 126 0
+ 143 0005 02 34       		ld	X,#0x0008
+ 144 0006 00 10       		st	X,@(0,Y)
+ 145 0007 00 00 00 00 		ld	AL,#0x0000
+ 145      00 9C 
+ 125:sensor_bme280.c ****     SpiReadRegisterBurst(REG_PRESS_MSB,dat,8,FALSE);//MSBFIRST
+ 146                 	@(0x0001,Y)
+ 147 000a 08 18       		ld	AL,#0x00f7
+ 148 000b 00 2B       		ld	AH,@$XAP_UY
+ 149 000c 00 14       		add	AH,#0x0002
+ 150 000d 01 27       		bsr	SpiReadRegisterBurst
+ 151 000e 01 00 F7 14 		.loc 1 128 0
+ 152 0010 00 00 00 11 		ld	AL,@(0x0002,Y)
+ 153 0012 02 30       		ld	AH,#0x0000
+ 154 0013 00 00 00 00 		asl	#0x0010
+ 154      00 9C 
+ 126:sensor_bme280.c ****     //up=((((uint32)dat[0])<<12)|(((uint32)dat[1])<<4)|(dat[2]>>4));
+ 127:sensor_bme280.c ****     up=((((uint32)dat[0])<<16)|(((uint32)dat[1])<<8)|dat[2])>>4;
+ 155                 	xfff8
+ 156 0016 02 17       		ld	X,@$XAP_AL
+ 157 0017 00 10       		ld	AL,@(0x0003,Y)
+ 158 0018 10 A0       		ld	AH,#0x0000
+ 159 0019 F8 21       		asl	#0x0008
+ 160 001a 00 00 00 19 		or	AL,@$XAP_UXL
+ 161 001c 03 17       		or	AH,@0xfff8
+ 162 001d 00 10       		or	AL,@(0x0004,Y)
+ 163 001e 08 A0       		st	AL,@(0x000c,Y)
+ 164 001f 00 00 00 B5 		st	AH,@(0x000b,Y)
+ 165 0021 F8 B1       		ld	AL,@(0x000c,Y)
+ 166 0022 04 B7       		ld	AH,@(0x000b,Y)
+ 167 0023 0C 27       		lsr	#0x0004
+ 168 0024 0B 23       		st	AL,@up+0x0001
+ 169 0025 0C 17       		st	AH,@up
+ 170 0026 0B 13       		.loc 1 130 0
+ 171 0027 00 09 04 A4 		ld	AL,@(0x0005,Y)
+ 172 0029 00 00 00 25 		ld	AH,#0x0000
+ 173 002b 00 00 00 21 		asl	#0x0010
+ 128:sensor_bme280.c ****     //ut=((((uint32)dat[3])<<12)|(((uint32)dat[4])<<4)|(dat[5]>>4));
+ 129:sensor_bme280.c ****     ut=(int32)(((((uint32)dat[3])<<16)|(((uint32)dat[4])<<8)|dat[5])>>4);
+ 174                 	X,@$XAP_AL
+ 175 002d 05 17       		ld	AL,@(0x0006,Y)
+ 176 002e 00 10       		ld	AH,#0x0000
+ 177 002f 10 A0       		asl	#0x0008
+ 178 0030 F8 21       		or	AL,@$XAP_UXL
+ 179 0031 00 00 00 19 		or	AH,@0xfff8
+ 180 0033 06 17       		or	AL,@(0x0007,Y)
+ 181 0034 00 10       		ld	X,#0x0000
+ 182 0035 08 A0       		st	AL,@(0x000e,Y)
+ 183 0036 00 00 00 B5 		st	AH,@(0x000d,Y)
+ 184 0038 F8 B1       		ld	AL,@(0x000e,Y)
+ 185 0039 07 B7       		ld	AH,@(0x000d,Y)
+ 186 003a 00 18       		lsr	#0x0004
+ 187 003b 0E 27       		st	AL,@ut+0x0001
+ 188 003c 0D 23       		st	AH,@ut
+ 189 003d 0E 17       		.loc 1 131 0
+ 190 003e 0D 13       		ld	AL,@(0x0008,Y)
+ 191 003f 00 09 04 A4 		asl	#0x0008
+ 192 0041 00 00 00 25 		or	AL,@(0x0009,Y)
+ 193 0043 00 00 00 21 		st	X,@uh
+ 130:sensor_bme280.c ****     uh=((((uint16)dat[6])<<8)|dat[7]);/**/
+ 194                 	d	AL,@$XAP_UY
+ 195 0045 08 17       		add	AL,#0x0002
+ 196 0046 08 A0       		st	AL,@(0x000a,Y)
+ 197 0047 09 B7       	.L12:
+ 198 0048 00 00 00 29 		.loc 1 132 0
+ 199 004a 00 00 00 25 		ld	X,@(0x000a,Y)
+ 200 004c 00 00 00 15 		ld	AL,@(0,X)
+ 201 004e 02 34       		bsr	DebugWriteUint16
+ 202 004f 0A 27       		ld	AL,#.LC0
+ 203                 		bsr	DebugWriteString
+ 131:sensor_bme280.c ****     for(i=0;i<8;i++) {DebugWriteUint16(dat[i]);DebugWriteString(" ");}
+ 204                 	x000a,Y)
+ 205 0050 0A 1B       		add	AL,#0x0001
+ 206 0051 00 16       		st	AL,@(0x000a,Y)
+ 207 0052 00 00 00 00 		ld	AL,@$XAP_UY
+ 207      00 9C 
+ 208 0055 00 00 00 14 		add	AL,#0x000a
+ 209 0057 00 00 00 00 		ld	X,@(0x000a,Y)
+ 209      00 9C 
+ 210 005a 0A 17       		cmp	X,@$XAP_AL
+ 211 005b 01 34       		bne	.L12
+ 212 005c 0A 27       		.loc 1 133 0
+ 213 005d 00 00 00 15 		ld	AL,#.LC1
+ 214 005f 0A 34       		bsr	DebugWriteString
+ 215 0060 0A 1B       		.loc 1 134 0
+ 216 0061 00 00 00 89 		ld	AL,@ut+0x0001
+ 217 0063 00 00 00 00 		ld	AH,@ut
+ 217      00 F0 
+ 132:sensor_bme280.c ****     DebugWriteString("\r\n");
+ 218                 	eUint32
+ 219 0066 00 00 00 14 		ld	AL,#.LC2
+ 220 0068 00 00 00 00 		bsr	DebugWriteString
+ 220      00 9C 
+ 133:sensor_bme280.c ****     DebugWriteUint32(ut);DebugWriteString("←ut ");printInDecimal(ut);
+ 221                 		AL,@ut+0x0001
+ 222 006b 00 00 00 15 		ld	AH,@ut
+ 223 006d 00 00 00 11 		bsr	printInDecimal
+ 224 006f 00 00 00 00 		.loc 1 135 0
+ 224      00 9C 
+ 225 0072 00 00 00 14 		ld	AL,#.LC1
+ 226 0074 00 00 00 00 		bsr	DebugWriteString
+ 226      00 9C 
+ 227 0077 00 00 00 15 		.loc 1 136 0
+ 228 0079 00 00 00 11 		ld	AL,@up+0x0001
+ 229 007b 00 00 00 00 		ld	AH,@up
+ 229      00 9C 
+ 134:sensor_bme280.c ****     DebugWriteString("\r\n");
+ 230                 	gWriteUint32
+ 231 007e 00 00 00 14 		ld	AL,#.LC3
+ 232 0080 00 00 00 00 		bsr	DebugWriteString
+ 232      00 9C 
+ 135:sensor_bme280.c ****     DebugWriteUint32(up);DebugWriteString(" ←up ");printInDecimal(up);
+ 233                 		AL,@up+0x0001
+ 234 0083 00 00 00 15 		ld	AH,@up
+ 235 0085 00 00 00 11 		bsr	printInDecimal
+ 236 0087 00 00 00 00 		.loc 1 137 0
+ 236      00 9C 
+ 237 008a 00 00 00 14 		ld	AL,#.LC1
+ 238 008c 00 00 00 00 		bsr	DebugWriteString
+ 238      00 9C 
+ 239 008f 00 00 00 15 		.loc 1 138 0
+ 240 0091 00 00 00 11 		ld	AL,@uh+0x0001
+ 241 0093 00 00 00 00 		ld	AH,@uh
+ 241      00 9C 
+ 136:sensor_bme280.c ****     DebugWriteString("\r\n");
+ 242                 	gWriteUint32
+ 243 0096 00 00 00 14 		ld	AL,#.LC4
+ 244 0098 00 00 00 00 		bsr	DebugWriteString
+ 244      00 9C 
+ 137:sensor_bme280.c ****     DebugWriteUint32(uh);DebugWriteString("←uh ");printInDecimal(uh);
+ 245                 		AL,@uh+0x0001
+ 246 009b 00 00 00 15 		ld	AH,@uh
+ 247 009d 00 00 00 11 		bsr	printInDecimal
+ 248 009f 00 00 00 00 		.loc 1 139 0
+ 248      00 9C 
+ 249 00a2 00 00 00 14 		ld	AL,#.LC1
+ 250 00a4 00 00 00 00 		bsr	DebugWriteString
+ 250      00 9C 
+ 251 00a7 00 00 00 15 		.loc 1 140 0
+ 252 00a9 00 00 00 11 		leave	#0x0010
+ 253 00ab 00 00 00 00 	.LFE6:
+ 253      00 9C 
+ 138:sensor_bme280.c ****     DebugWriteString("\r\n");
+ 254                 	E280_Getdata, .-BME280_Getdata
+ 255 00ae 00 00 00 14 		.global	__size_of_BME280_Getdata
+ 256 00b0 00 00 00 00 		.equ	__size_of_BME280_Getdata,. - BME280_Getdata
+ 256      00 9C 
+ 139:sensor_bme280.c **** }
+ 257                 	ection	.rodata.str2.2
+ 258 00b3 10 0F       	.LC5:
+ 259                 		.ascii "<-Get chip id\r\n\000"
+ 260                 	.LC6:
+ 261                 		.ascii "\241\373dig_T1 \000"
+ 262                 	.LC7:
+ 263                 		.ascii "\241\373dig_T2 \000"
+ 264                 	.LC8:
+ 265 0018 00 3C 00 2D 		.ascii "\241\373dig_T3 \000"
+ 265      00 47 00 65 
+ 265      00 74 00 20 
+ 265      00 63 00 68 
+ 265      00 69 00 70 
+ 266                 	.LC9:
+ 267 0028 00 A1 00 FB 		.ascii "\241\373dig_P1 \000"
+ 267      00 64 00 69 
+ 267      00 67 00 5F 
+ 267      00 54 00 31 
+ 267      00 20 00 00 
+ 268                 	.LC10:
+ 269 0032 00 A1 00 FB 		.ascii " \241\373dig_P2 \000"
+ 269      00 64 00 69 
+ 269      00 67 00 5F 
+ 269      00 54 00 32 
+ 269      00 20 00 00 
+ 270                 	.LC11:
+ 271 003c 00 A1 00 FB 		.ascii "\241\373dig_P3 \000"
+ 271      00 64 00 69 
+ 271      00 67 00 5F 
+ 271      00 54 00 33 
+ 271      00 20 00 00 
+ 272                 	.LC12:
+ 273 0046 00 A1 00 FB 		.ascii " \241\373 dig_P4 \000"
+ 273      00 64 00 69 
+ 273      00 67 00 5F 
+ 273      00 50 00 31 
+ 273      00 20 00 00 
+ 274                 	.LC13:
+ 275 0050 00 20 00 A1 		.ascii " \241\373dig_P5 \000"
+ 275      00 FB 00 64 
+ 275      00 69 00 67 
+ 275      00 5F 00 50 
+ 275      00 32 00 20 
+ 276                 	.LC14:
+ 277 005b 00 A1 00 FB 		.ascii "\241\373dig_P6 \000"
+ 277      00 64 00 69 
+ 277      00 67 00 5F 
+ 277      00 50 00 33 
+ 277      00 20 00 00 
+ 278                 	.LC15:
+ 279 0065 00 20 00 A1 		.ascii "\241\373dig_P7 \000"
+ 279      00 FB 00 20 
+ 279      00 64 00 69 
+ 279      00 67 00 5F 
+ 279      00 50 00 34 
+ 280                 	.LC16:
+ 281 0071 00 20 00 A1 		.ascii " \241\373dig_P8 \000"
+ 281      00 FB 00 64 
+ 281      00 69 00 67 
+ 281      00 5F 00 50 
+ 281      00 35 00 20 
+ 282                 	.LC17:
+ 283 007c 00 A1 00 FB 		.ascii " \241\373dig_P9 \000"
+ 283      00 64 00 69 
+ 283      00 67 00 5F 
+ 283      00 50 00 36 
+ 283      00 20 00 00 
+ 284                 	.LC18:
+ 285 0086 00 A1 00 FB 		.ascii " \241\373dig_H1 \000"
+ 285      00 64 00 69 
+ 285      00 67 00 5F 
+ 285      00 50 00 37 
+ 285      00 20 00 00 
+ 286                 	.LC19:
+ 287 0090 00 20 00 A1 		.ascii "\241\373dig_H2 \000"
+ 287      00 FB 00 64 
+ 287      00 69 00 67 
+ 287      00 5F 00 50 
+ 287      00 38 00 20 
+ 288                 	.LC20:
+ 289 009b 00 20 00 A1 		.ascii " \241\373dig_H3 \000"
+ 289      00 FB 00 64 
+ 289      00 69 00 67 
+ 289      00 5F 00 50 
+ 289      00 39 00 20 
+ 290                 	.LC21:
+ 291 00a6 00 20 00 A1 		.ascii "\241\373dig_H4 \000"
+ 291      00 FB 00 64 
+ 291      00 69 00 67 
+ 291      00 5F 00 48 
+ 291      00 31 00 20 
+ 292                 	.LC22:
+ 293 00b1 00 A1 00 FB 		.ascii " \241\373dig_H5 \000"
+ 293      00 64 00 69 
+ 293      00 67 00 5F 
+ 293      00 48 00 32 
+ 293      00 20 00 00 
+ 294                 	.LC23:
+ 295 00bb 00 20 00 A1 		.ascii "\241\373 dig_H6 \000"
+ 295      00 FB 00 64 
+ 295      00 69 00 67 
+ 295      00 5F 00 48 
+ 295      00 33 00 20 
+ 296                 		.section	.text.BME280_Init,"ax",@progbits
+ 297 00c6 00 A1 00 FB 		.global	BME280_Init
+ 297      00 64 00 69 
+ 297      00 67 00 5F 
+ 297      00 48 00 34 
+ 297      00 20 00 00 
+ 298                 		.type	BME280_Init, @function
+ 299 00d0 00 20 00 A1 	BME280_Init:
+ 299      00 FB 00 64 
+ 299      00 69 00 67 
+ 299      00 5F 00 48 
+ 299      00 35 00 20 
+ 300                 	.LFB5:
+ 301 00db 00 A1 00 FB 		.loc 1 38 0
+ 301      00 20 00 64 
+ 301      00 69 00 67 
+ 301      00 5F 00 48 
+ 301      00 36 00 20 
+ 302                 		enter	#0x0024
+ 303                 	.LCFI3:
+ 304                 		.loc 1 42 0
+ 305                 		ld	AH,#0x0004
+ 306                 		st	AH,@(0,Y)
+  38:sensor_bme280.c **** {   
+ 307                 	ld	AH,#0x000b
+ 308 0000 24 0B       		bsr	SpiInit
+ 309                 		.loc 1 45 0
+  42:sensor_bme280.c ****     ret_status=SpiInit(10,11,4,9);
+ 310                 		AL,#0x0060
+ 311 0001 04 10       		ld	AH,#0x00b0
+ 312 0002 00 23       		bsr	SpiWriteRegister
+ 313 0003 09 14       		.loc 1 47 0
+ 314 0004 01 27       		ld	AL,#0x0075
+ 315 0005 0A 14       		ld	AH,#0x0000
+ 316 0006 0B 10       		bsr	SpiWriteRegister
+ 317 0007 00 00 00 00 		.loc 1 48 0
+ 317      00 9C 
+  45:sensor_bme280.c ****     SpiWriteRegister(REG_RESET &0x7f,RESET);//R/W#=0
+ 318                 	0x0074
+ 319 000a 60 14       		ld	AH,#0x0026
+ 320 000b 01 00 B0 10 		bsr	SpiWriteRegister
+ 321 000d 00 00 00 00 		.loc 1 49 0
+ 321      00 9C 
+  47:sensor_bme280.c ****     SpiWriteRegister(REG_CONFIG &0x7f,0x00);//t_sb:0.5ms,IIR:off,SPI3W_en=0
+ 322                 	AL,#0x0072
+ 323 0010 75 14       		ld	AH,#0x0001
+ 324 0011 00 10       		bsr	SpiWriteRegister
+ 325 0012 00 00 00 00 		.loc 1 51 0
+ 325      00 9C 
+  48:sensor_bme280.c ****     SpiWriteRegister(REG_CTRL_MEAS &0x7f,0x26);//osr_t:x1,osr_p:x1,mode:forced
+ 326                 	AL,#0x00d0
+ 327 0015 74 14       		bsr	SpiReadRegister
+ 328 0016 26 10       		.loc 1 53 0
+ 329 0017 00 00 00 00 		cmp	AL,#0x0060
+ 329      00 9C 
+  49:sensor_bme280.c ****     SpiWriteRegister(REG_CTRL_HUM &0x7f,0x01); //osr_h:x1
+ 330                 	5:
+ 331 001a 72 14       		bne	.L16
+ 332 001b 01 10       		.loc 1 55 0
+ 333 001c 00 00 00 00 		bsr	DebugWriteUint8
+ 333      00 9C 
+  51:sensor_bme280.c ****     chip_id=SpiReadRegister(REG_CHIPID);
+ 334                 	6:
+ 335 001f 01 00 D0 14 		ld	AL,#.LC5
+ 336 0021 00 00 00 00 		bsr	DebugWriteString
+ 336      00 9C 
+  53:sensor_bme280.c ****     if(chip_id==CHIPID) 
+ 337                 	oc 1 56 0
+ 338 0024 60 84       		ld	AH,#0x0018
+ 339                 		st	AH,@(0,Y)
+ 340 0025 00 00 00 00 		ld	AL,#0x0000
+ 340      00 F0 
+  55:sensor_bme280.c ****         DebugWriteUint8(chip_id);DebugWriteString("<-Get chip id\r\n");
+ 341                 	AL,@(0x0001,Y)
+ 342 0028 00 00 00 00 		ld	AL,#0x0088
+ 342      00 9C 
+ 343                 		ld	AH,@$XAP_UY
+ 344 002b 00 00 00 14 		add	AH,#0x0002
+ 345 002d 00 00 00 00 		bsr	SpiReadRegisterBurst
+ 345      00 9C 
+  56:sensor_bme280.c ****         SpiReadRegisterBurst(REG_DIG_T1,coeff,24,FALSE);
+ 346                 	 1 57 0
+ 347 0030 18 10       		ld	AL,@(0x0003,Y)
+ 348 0031 00 23       		asl	#0x0008
+ 349 0032 00 14       		or	AL,@(0x0002,Y)
+ 350 0033 01 27       		st	AL,@dig_T1
+ 351 0034 01 00 88 14 		.loc 1 58 0
+ 352 0036 00 00 00 11 		ld	AL,@(0x0005,Y)
+ 353 0038 02 30       		asl	#0x0008
+ 354 0039 00 00 00 00 		or	AL,@(0x0004,Y)
+ 354      00 9C 
+  57:sensor_bme280.c ****         dig_T1=coeff[0]|(((uint16)coeff[1])<<8);//LSBFIRST
+ 355                 	ig_T2
+ 356 003c 03 17       		.loc 1 59 0
+ 357 003d 08 A0       		ld	AL,@(0x0007,Y)
+ 358 003e 02 B7       		asl	#0x0008
+ 359 003f 00 00 00 25 		or	AL,@(0x0006,Y)
+  58:sensor_bme280.c ****         dig_T2=coeff[2]|(((uint16)coeff[3])<<8);
+ 360                 	L,@dig_T3
+ 361 0041 05 17       		.loc 1 60 0
+ 362 0042 08 A0       		ld	AL,@(0x0009,Y)
+ 363 0043 04 B7       		asl	#0x0008
+ 364 0044 00 00 00 25 		or	AL,@(0x0008,Y)
+  59:sensor_bme280.c ****         dig_T3=coeff[4]|(((uint16)coeff[5])<<8);
+ 365                 	L,@dig_P1
+ 366 0046 07 17       		.loc 1 61 0
+ 367 0047 08 A0       		ld	AL,@(0x000b,Y)
+ 368 0048 06 B7       		asl	#0x0008
+ 369 0049 00 00 00 25 		or	AL,@(0x000a,Y)
+  60:sensor_bme280.c ****         dig_P1=coeff[6]|(((uint16)coeff[7])<<8);
+ 370                 	L,@dig_P2
+ 371 004b 09 17       		.loc 1 62 0
+ 372 004c 08 A0       		ld	AL,@(0x000d,Y)
+ 373 004d 08 B7       		asl	#0x0008
+ 374 004e 00 00 00 25 		or	AL,@(0x000c,Y)
+  61:sensor_bme280.c ****         dig_P2=coeff[8]|(((uint16)coeff[9])<<8);
+ 375                 	L,@dig_P3
+ 376 0050 0B 17       		.loc 1 63 0
+ 377 0051 08 A0       		ld	AL,@(0x000f,Y)
+ 378 0052 0A B7       		asl	#0x0008
+ 379 0053 00 00 00 25 		or	AL,@(0x000e,Y)
+  62:sensor_bme280.c ****         dig_P3=coeff[10]|(((uint16)coeff[11])<<8);
+ 380                 	L,@dig_P4
+ 381 0055 0D 17       		.loc 1 64 0
+ 382 0056 08 A0       		ld	AL,@(0x0011,Y)
+ 383 0057 0C B7       		asl	#0x0008
+ 384 0058 00 00 00 25 		or	AL,@(0x0010,Y)
+  63:sensor_bme280.c ****         dig_P4=coeff[12]|(((uint16)coeff[13])<<8);
+ 385                 	L,@dig_P5
+ 386 005a 0F 17       		.loc 1 65 0
+ 387 005b 08 A0       		ld	AL,@(0x0013,Y)
+ 388 005c 0E B7       		asl	#0x0008
+ 389 005d 00 00 00 25 		or	AL,@(0x0012,Y)
+  64:sensor_bme280.c ****         dig_P5=coeff[14]|(((uint16)coeff[15])<<8);
+ 390                 	L,@dig_P6
+ 391 005f 11 17       		.loc 1 66 0
+ 392 0060 08 A0       		ld	AL,@(0x0015,Y)
+ 393 0061 10 B7       		asl	#0x0008
+ 394 0062 00 00 00 25 		or	AL,@(0x0014,Y)
+  65:sensor_bme280.c ****         dig_P6=coeff[16]|(((uint16)coeff[17])<<8);
+ 395                 	L,@dig_P7
+ 396 0064 13 17       		.loc 1 67 0
+ 397 0065 08 A0       		ld	AL,@(0x0017,Y)
+ 398 0066 12 B7       		asl	#0x0008
+ 399 0067 00 00 00 25 		or	AL,@(0x0016,Y)
+  66:sensor_bme280.c ****         dig_P7=coeff[18]|(((uint16)coeff[19])<<8);
+ 400                 	L,@dig_P8
+ 401 0069 15 17       		.loc 1 68 0
+ 402 006a 08 A0       		ld	AL,@(0x0019,Y)
+ 403 006b 14 B7       		asl	#0x0008
+ 404 006c 00 00 00 25 		or	AL,@(0x0018,Y)
+  67:sensor_bme280.c ****         dig_P8=coeff[20]|(((uint16)coeff[21])<<8);
+ 405                 	L,@dig_P9
+ 406 006e 17 17       		.loc 1 70 0
+ 407 006f 08 A0       		ld	AL,#0x00a1
+ 408 0070 16 B7       		bsr	SpiReadRegister
+ 409 0071 00 00 00 25 		st	AL,@dig_H1
+  68:sensor_bme280.c ****         dig_P9=coeff[22]|(((uint16)coeff[23])<<8);
+ 410                 	 1 71 0
+ 411 0073 19 17       		ld	AL,#0x00e3
+ 412 0074 08 A0       		bsr	SpiReadRegister
+ 413 0075 18 B7       		st	AL,@dig_H3
+ 414 0076 00 00 00 25 		.loc 1 72 0
+  70:sensor_bme280.c ****         dig_H1=SpiReadRegister(REG_DIG_H1);               //uint8
+ 415                 	L,#0x00e7
+ 416 0078 01 00 A1 14 		bsr	SpiReadRegister
+ 417 007a 00 00 00 00 		st	AL,@dig_H6
+ 417      00 9C 
+ 418 007d 00 00 00 25 		.loc 1 74 0
+  71:sensor_bme280.c ****         dig_H3=SpiReadRegister(REG_DIG_H3);
+ 419                 	AH,#0x0002
+ 420 007f 01 00 E3 14 		st	AH,@(0,Y)
+ 421 0081 00 00 00 00 		ld	AL,#0x0000
+ 421      00 9C 
+ 422 0084 00 00 00 25 		st	AL,@(0x0001,Y)
+  72:sensor_bme280.c ****         dig_H6=SpiReadRegister(REG_DIG_H6);
+ 423                 	AL,#0x00e1
+ 424 0086 01 00 E7 14 		ld	AH,@$XAP_UY
+ 425 0088 00 00 00 00 		add	AH,#0x001a
+ 425      00 9C 
+ 426 008b 00 00 00 25 		bsr	SpiReadRegisterBurst
+  74:sensor_bme280.c ****         SpiReadRegisterBurst(REG_DIG_H2,coeff+24,2,FALSE);//uint16
+ 427                 	c 1 75 0
+ 428 008d 02 10       		ld	AL,@(0x001b,Y)
+ 429 008e 00 23       		asl	#0x0008
+ 430 008f 00 14       		or	AL,@(0x001a,Y)
+ 431 0090 01 27       		st	AL,@dig_H2
+ 432 0091 01 00 E1 14 		.loc 1 77 0
+ 433 0093 00 00 00 11 		ld	AL,#0x00e4
+ 434 0095 1A 30       		bsr	SpiReadRegister
+ 435 0096 00 00 00 00 		st	AL,@(0x001c,Y)
+ 435      00 9C 
+  75:sensor_bme280.c ****         dig_H2=coeff[24]|(((uint16)coeff[25])<<8);
+ 436                 	8 0
+ 437 0099 1B 17       		ld	AH,#0x0002
+ 438 009a 08 A0       		st	AH,@(0,Y)
+ 439 009b 1A B7       		ld	AL,#0x0000
+ 440 009c 00 00 00 25 		st	AL,@(0x0001,Y)
+  77:sensor_bme280.c ****         coeff[26]=SpiReadRegister(REG_DIG_H4);            //uint12
+ 441                 	L,#0x00e5
+ 442 009e 01 00 E4 14 		ld	AH,@$XAP_UY
+ 443 00a0 00 00 00 00 		add	AH,#0x001d
+ 443      00 9C 
+ 444 00a3 1C 27       		bsr	SpiReadRegisterBurst
+  78:sensor_bme280.c ****         SpiReadRegisterBurst(REG_DIG_H5,coeff+27,2,FALSE);
+ 445                 	c 1 79 0
+ 446 00a4 02 10       		ld	X,@(0x001d,Y)
+ 447 00a5 00 23       		ld	AH,@$XAP_UXL
+ 448 00a6 00 14       		and	AH,#0x000f
+ 449 00a7 01 27       		st	AH,@0xfff8
+ 450 00a8 01 00 E5 14 		ld	AL,@(0x001c,Y)
+ 451 00aa 00 00 00 11 		asl	#0x0004
+ 452 00ac 1D 30       		or	AL,@0xfff8
+ 453 00ad 00 00 00 00 		st	AL,@dig_H4
+ 453      00 9C 
+  79:sensor_bme280.c ****         dig_H4=(((uint16)coeff[26])<<4)|(coeff[27]&0x0f);//MSBFIRST
+ 454                 	1 0
+ 455 00b0 1D 1B       		ld	AH,@$XAP_UXL
+ 456 00b1 00 00 00 11 		lsr	#0x0004
+ 457 00b3 0F C0       		ld	X,@$XAP_AH
+ 458 00b4 F8 21       		and	X,#0x000f
+ 459 00b5 1C 17       		ld	AL,@(0x001e,Y)
+ 460 00b6 04 A0       		asl	#0x0004
+ 461 00b7 F8 B5       		or	X,@$XAP_AL
+ 462 00b8 00 00 00 25 		st	X,@dig_H5
+  81:sensor_bme280.c ****         dig_H5=(((uint16)coeff[28])<<4)|((coeff[27]>>4)&0x0f);//LSBFIRST
+ 463                 	16:
+ 464 00ba 00 00 00 11 		.loc 1 83 0
+ 465 00bc 00 09 04 A4 		ld	AL,@dig_T1
+ 466 00be 00 00 00 19 	.LVL8:
+ 467 00c0 0F C8       		ld	AH,#0x0000
+ 468 00c1 1E 17       		bsr	printInDecimal
+ 469 00c2 04 A0       		ld	AL,#.LC6
+ 470 00c3 00 00 00 B9 		bsr	DebugWriteString
+ 471 00c5 00 00 00 29 		.loc 1 84 0
+ 472                 		ld	AL,@dig_T1
+ 473                 		bsr	DebugWriteUint16
+  83:sensor_bme280.c ****     printInDecimal(dig_T1);DebugWriteString("←dig_T1 ");
+ 474                 	1
+ 475 00c7 00 00 00 15 		bsr	DebugWriteString
+ 476                 		.loc 1 85 0
+ 477 00c9 00 10       		ld	AH,@dig_T2
+ 478 00ca 00 00 00 00 		asr	#0x0010
+ 478      00 9C 
+ 479 00cd 00 00 00 14 		st	AH,@0xfff8
+ 480 00cf 00 00 00 00 		ld	AH,@0xfff8
+ 480      00 9C 
+  84:sensor_bme280.c ****     DebugWriteUint16(dig_T1);DebugWriteString("\r\n");
+ 481                 	intInDecimal
+ 482 00d2 00 00 00 15 		ld	AL,#.LC7
+ 483 00d4 00 00 00 00 		bsr	DebugWriteString
+ 483      00 9C 
+ 484 00d7 00 00 00 14 		.loc 1 86 0
+ 485 00d9 00 00 00 00 		ld	AL,@dig_T2
+ 485      00 9C 
+  85:sensor_bme280.c ****     printInDecimal(dig_T2);DebugWriteString("←dig_T2 ");
+ 486                 	DebugWriteUint16
+ 487 00dc 00 00 00 11 		ld	AL,#.LC1
+ 488 00de 10 A4       		bsr	DebugWriteString
+ 489 00df F8 21       		.loc 1 87 0
+ 490 00e0 F8 11       		ld	AH,@dig_T3
+ 491 00e1 00 00 00 00 		asr	#0x0010
+ 491      00 9C 
+ 492 00e4 00 00 00 14 		st	AH,@0xfff8
+ 493 00e6 00 00 00 00 		ld	AH,@0xfff8
+ 493      00 9C 
+  86:sensor_bme280.c ****     DebugWriteUint16(dig_T2);DebugWriteString("\r\n");
+ 494                 	ntInDecimal
+ 495 00e9 00 00 00 15 		ld	AL,#.LC8
+ 496 00eb 00 00 00 00 		bsr	DebugWriteString
+ 496      00 9C 
+ 497 00ee 00 00 00 14 		.loc 1 88 0
+ 498 00f0 00 00 00 00 		ld	AL,@dig_T3
+ 498      00 9C 
+  87:sensor_bme280.c ****     printInDecimal(dig_T3);DebugWriteString("←dig_T3 ");
+ 499                 	DebugWriteUint16
+ 500 00f3 00 00 00 11 		ld	AL,#.LC1
+ 501 00f5 10 A4       		bsr	DebugWriteString
+ 502 00f6 F8 21       		.loc 1 90 0
+ 503 00f7 F8 11       		ld	AL,@dig_P1
+ 504 00f8 00 00 00 00 		ld	AH,#0x0000
+ 504      00 9C 
+ 505 00fb 00 00 00 14 		bsr	printInDecimal
+ 506 00fd 00 00 00 00 		ld	AL,#.LC9
+ 506      00 9C 
+  88:sensor_bme280.c ****     DebugWriteUint16(dig_T3);DebugWriteString("\r\n");
+ 507                 	ugWriteString
+ 508 0100 00 00 00 15 		.loc 1 91 0
+ 509 0102 00 00 00 00 		ld	AL,@dig_P1
+ 509      00 9C 
+ 510 0105 00 00 00 14 		bsr	DebugWriteUint16
+ 511 0107 00 00 00 00 		ld	AL,#.LC1
+ 511      00 9C 
+  90:sensor_bme280.c ****     printInDecimal(dig_P1);DebugWriteString("←dig_P1 ");
+ 512                 	DebugWriteString
+ 513 010a 00 00 00 15 		.loc 1 92 0
+ 514 010c 00 10       		ld	AH,@dig_P2
+ 515 010d 00 00 00 00 		asr	#0x0010
+ 515      00 9C 
+ 516 0110 00 00 00 14 		st	AH,@0xfff8
+ 517 0112 00 00 00 00 		ld	AH,@0xfff8
+ 517      00 9C 
+  91:sensor_bme280.c ****     DebugWriteUint16(dig_P1);DebugWriteString("\r\n");    
+ 518                 	rintInDecimal
+ 519 0115 00 00 00 15 		ld	AL,#.LC10
+ 520 0117 00 00 00 00 		bsr	DebugWriteString
+ 520      00 9C 
+ 521 011a 00 00 00 14 		.loc 1 93 0
+ 522 011c 00 00 00 00 		ld	AL,@dig_P2
+ 522      00 9C 
+  92:sensor_bme280.c ****     printInDecimal(dig_P2);DebugWriteString(" ←dig_P2 ");
+ 523                 	DebugWriteUint16
+ 524 011f 00 00 00 11 		ld	AL,#.LC1
+ 525 0121 10 A4       		bsr	DebugWriteString
+ 526 0122 F8 21       		.loc 1 94 0
+ 527 0123 F8 11       		ld	AH,@dig_P3
+ 528 0124 00 00 00 00 		asr	#0x0010
+ 528      00 9C 
+ 529 0127 00 00 00 14 		st	AH,@0xfff8
+ 530 0129 00 00 00 00 		ld	AH,@0xfff8
+ 530      00 9C 
+  93:sensor_bme280.c ****     DebugWriteUint16(dig_P2);DebugWriteString("\r\n"); 
+ 531                 	ntInDecimal
+ 532 012c 00 00 00 15 		ld	AL,#.LC11
+ 533 012e 00 00 00 00 		bsr	DebugWriteString
+ 533      00 9C 
+ 534 0131 00 00 00 14 		.loc 1 95 0
+ 535 0133 00 00 00 00 		ld	AL,@dig_P3
+ 535      00 9C 
+  94:sensor_bme280.c ****     printInDecimal(dig_P3);DebugWriteString("←dig_P3 ");
+ 536                 	DebugWriteUint16
+ 537 0136 00 00 00 11 		ld	AL,#.LC1
+ 538 0138 10 A4       		bsr	DebugWriteString
+ 539 0139 F8 21       		.loc 1 96 0
+ 540 013a F8 11       		ld	AH,@dig_P4
+ 541 013b 00 00 00 00 		asr	#0x0010
+ 541      00 9C 
+ 542 013e 00 00 00 14 		st	AH,@0xfff8
+ 543 0140 00 00 00 00 		ld	AH,@0xfff8
+ 543      00 9C 
+  95:sensor_bme280.c ****     DebugWriteUint16(dig_P3);DebugWriteString("\r\n"); 
+ 544                 	ntInDecimal
+ 545 0143 00 00 00 15 		ld	AL,#.LC12
+ 546 0145 00 00 00 00 		bsr	DebugWriteString
+ 546      00 9C 
+ 547 0148 00 00 00 14 		.loc 1 97 0
+ 548 014a 00 00 00 00 		ld	AL,@dig_P4
+ 548      00 9C 
+  96:sensor_bme280.c ****     printInDecimal(dig_P4);DebugWriteString(" ← dig_P4 ");
+ 549                 	DebugWriteUint16
+ 550 014d 00 00 00 11 		ld	AL,#.LC1
+ 551 014f 10 A4       		bsr	DebugWriteString
+ 552 0150 F8 21       		.loc 1 98 0
+ 553 0151 F8 11       		ld	AH,@dig_P5
+ 554 0152 00 00 00 00 		asr	#0x0010
+ 554      00 9C 
+ 555 0155 00 00 00 14 		st	AH,@0xfff8
+ 556 0157 00 00 00 00 		ld	AH,@0xfff8
+ 556      00 9C 
+  97:sensor_bme280.c ****     DebugWriteUint16(dig_P4);DebugWriteString("\r\n"); 
+ 557                 	ntInDecimal
+ 558 015a 00 00 00 15 		ld	AL,#.LC13
+ 559 015c 00 00 00 00 		bsr	DebugWriteString
+ 559      00 9C 
+ 560 015f 00 00 00 14 		.loc 1 99 0
+ 561 0161 00 00 00 00 		ld	AL,@dig_P5
+ 561      00 9C 
+  98:sensor_bme280.c ****     printInDecimal(dig_P5);DebugWriteString(" ←dig_P5 ");
+ 562                 	DebugWriteUint16
+ 563 0164 00 00 00 11 		ld	AL,#.LC1
+ 564 0166 10 A4       		bsr	DebugWriteString
+ 565 0167 F8 21       		.loc 1 100 0
+ 566 0168 F8 11       		ld	AH,@dig_P6
+ 567 0169 00 00 00 00 		asr	#0x0010
+ 567      00 9C 
+ 568 016c 00 00 00 14 		st	AH,@0xfff8
+ 569 016e 00 00 00 00 		ld	AH,@0xfff8
+ 569      00 9C 
+  99:sensor_bme280.c ****     DebugWriteUint16(dig_P5);DebugWriteString("\r\n"); 
+ 570                 	ntInDecimal
+ 571 0171 00 00 00 15 		ld	AL,#.LC14
+ 572 0173 00 00 00 00 		bsr	DebugWriteString
+ 572      00 9C 
+ 573 0176 00 00 00 14 		.loc 1 101 0
+ 574 0178 00 00 00 00 		ld	AL,@dig_P6
+ 574      00 9C 
+ 100:sensor_bme280.c ****     printInDecimal(dig_P6);DebugWriteString("←dig_P6 ");
+ 575                 	DebugWriteUint16
+ 576 017b 00 00 00 11 		ld	AL,#.LC1
+ 577 017d 10 A4       		bsr	DebugWriteString
+ 578 017e F8 21       		.loc 1 102 0
+ 579 017f F8 11       		ld	AH,@dig_P7
+ 580 0180 00 00 00 00 		asr	#0x0010
+ 580      00 9C 
+ 581 0183 00 00 00 14 		st	AH,@0xfff8
+ 582 0185 00 00 00 00 		ld	AH,@0xfff8
+ 582      00 9C 
+ 101:sensor_bme280.c ****     DebugWriteUint16(dig_P6);DebugWriteString("\r\n");
+ 583                 	ntInDecimal
+ 584 0188 00 00 00 15 		ld	AL,#.LC15
+ 585 018a 00 00 00 00 		bsr	DebugWriteString
+ 585      00 9C 
+ 586 018d 00 00 00 14 		.loc 1 103 0
+ 587 018f 00 00 00 00 		ld	AL,@dig_P7
+ 587      00 9C 
+ 102:sensor_bme280.c ****     printInDecimal(dig_P7);DebugWriteString("←dig_P7 ");
+ 588                 	DebugWriteUint16
+ 589 0192 00 00 00 11 		ld	AL,#.LC1
+ 590 0194 10 A4       		bsr	DebugWriteString
+ 591 0195 F8 21       		.loc 1 104 0
+ 592 0196 F8 11       		ld	AH,@dig_P8
+ 593 0197 00 00 00 00 		asr	#0x0010
+ 593      00 9C 
+ 594 019a 00 00 00 14 		st	AH,@0xfff8
+ 595 019c 00 00 00 00 		ld	AH,@0xfff8
+ 595      00 9C 
+ 103:sensor_bme280.c ****     DebugWriteUint16(dig_P7);DebugWriteString("\r\n");
+ 596                 	ntInDecimal
+ 597 019f 00 00 00 15 		ld	AL,#.LC16
+ 598 01a1 00 00 00 00 		bsr	DebugWriteString
+ 598      00 9C 
+ 599 01a4 00 00 00 14 		.loc 1 105 0
+ 600 01a6 00 00 00 00 		ld	AL,@dig_P8
+ 600      00 9C 
+ 104:sensor_bme280.c ****     printInDecimal(dig_P8);DebugWriteString(" ←dig_P8 ");
+ 601                 	DebugWriteUint16
+ 602 01a9 00 00 00 11 		ld	AL,#.LC1
+ 603 01ab 10 A4       		bsr	DebugWriteString
+ 604 01ac F8 21       		.loc 1 106 0
+ 605 01ad F8 11       		ld	AH,@dig_P9
+ 606 01ae 00 00 00 00 		asr	#0x0010
+ 606      00 9C 
+ 607 01b1 00 00 00 14 		st	AH,@0xfff8
+ 608 01b3 00 00 00 00 		ld	AH,@0xfff8
+ 608      00 9C 
+ 105:sensor_bme280.c ****     DebugWriteUint16(dig_P8);DebugWriteString("\r\n");
+ 609                 	ntInDecimal
+ 610 01b6 00 00 00 15 		ld	AL,#.LC17
+ 611 01b8 00 00 00 00 		bsr	DebugWriteString
+ 611      00 9C 
+ 612 01bb 00 00 00 14 		.loc 1 107 0
+ 613 01bd 00 00 00 00 		ld	AL,@dig_P9
+ 613      00 9C 
+ 106:sensor_bme280.c ****     printInDecimal(dig_P9);DebugWriteString(" ←dig_P9 ");    
+ 614                 	DebugWriteUint16
+ 615 01c0 00 00 00 11 		ld	AL,#.LC1
+ 616 01c2 10 A4       		bsr	DebugWriteString
+ 617 01c3 F8 21       		.loc 1 109 0
+ 618 01c4 F8 11       		ld	AL,@dig_H1
+ 619 01c5 00 00 00 00 		ld	AH,#0x0000
+ 619      00 9C 
+ 620 01c8 00 00 00 14 		bsr	printInDecimal
+ 621 01ca 00 00 00 00 		ld	AL,#.LC18
+ 621      00 9C 
+ 107:sensor_bme280.c ****     DebugWriteUint16(dig_P9);DebugWriteString("\r\n"); 
+ 622                 	ugWriteString
+ 623 01cd 00 00 00 15 		.loc 1 110 0
+ 624 01cf 00 00 00 00 		ld	AL,@dig_H1
+ 624      00 9C 
+ 625 01d2 00 00 00 14 		bsr	DebugWriteUint16
+ 626 01d4 00 00 00 00 		ld	AL,#.LC1
+ 626      00 9C 
+ 109:sensor_bme280.c ****     printInDecimal(dig_H1);DebugWriteString(" ←dig_H1 ");
+ 627                 	DebugWriteString
+ 628 01d7 00 00 00 15 		.loc 1 111 0
+ 629 01d9 00 10       		ld	AH,@dig_H2
+ 630 01da 00 00 00 00 		asr	#0x0010
+ 630      00 9C 
+ 631 01dd 00 00 00 14 		st	AH,@0xfff8
+ 632 01df 00 00 00 00 		ld	AH,@0xfff8
+ 632      00 9C 
+ 110:sensor_bme280.c ****     DebugWriteUint16(dig_H1);DebugWriteString("\r\n"); 
+ 633                 	rintInDecimal
+ 634 01e2 00 00 00 15 		ld	AL,#.LC19
+ 635 01e4 00 00 00 00 		bsr	DebugWriteString
+ 635      00 9C 
+ 636 01e7 00 00 00 14 		.loc 1 112 0
+ 637 01e9 00 00 00 00 		ld	AL,@dig_H2
+ 637      00 9C 
+ 111:sensor_bme280.c ****     printInDecimal(dig_H2);DebugWriteString("←dig_H2 ");
+ 638                 	DebugWriteUint16
+ 639 01ec 00 00 00 11 		ld	AL,#.LC1
+ 640 01ee 10 A4       		bsr	DebugWriteString
+ 641 01ef F8 21       		.loc 1 113 0
+ 642 01f0 F8 11       		ld	AL,@dig_H3
+ 643 01f1 00 00 00 00 		ld	AH,#0x0000
+ 643      00 9C 
+ 644 01f4 00 00 00 14 		bsr	printInDecimal
+ 645 01f6 00 00 00 00 		ld	AL,#.LC20
+ 645      00 9C 
+ 112:sensor_bme280.c ****     DebugWriteUint16(dig_H2);DebugWriteString("\r\n"); 
+ 646                 	ugWriteString
+ 647 01f9 00 00 00 15 		.loc 1 114 0
+ 648 01fb 00 00 00 00 		ld	AL,@dig_H3
+ 648      00 9C 
+ 649 01fe 00 00 00 14 		bsr	DebugWriteUint16
+ 650 0200 00 00 00 00 		ld	AL,#.LC1
+ 650      00 9C 
+ 113:sensor_bme280.c ****     printInDecimal(dig_H3);DebugWriteString(" ←dig_H3 ");
+ 651                 	DebugWriteString
+ 652 0203 00 00 00 15 		.loc 1 115 0
+ 653 0205 00 10       		ld	AH,@dig_H4
+ 654 0206 00 00 00 00 		asr	#0x0010
+ 654      00 9C 
+ 655 0209 00 00 00 14 		st	AH,@0xfff8
+ 656 020b 00 00 00 00 		ld	AH,@0xfff8
+ 656      00 9C 
+ 114:sensor_bme280.c ****     DebugWriteUint16(dig_H3);DebugWriteString("\r\n");     
+ 657                 	rintInDecimal
+ 658 020e 00 00 00 15 		ld	AL,#.LC21
+ 659 0210 00 00 00 00 		bsr	DebugWriteString
+ 659      00 9C 
+ 660 0213 00 00 00 14 		.loc 1 116 0
+ 661 0215 00 00 00 00 		ld	AL,@dig_H4
+ 661      00 9C 
+ 115:sensor_bme280.c ****     printInDecimal(dig_H4);DebugWriteString("←dig_H4 ");
+ 662                 	DebugWriteUint16
+ 663 0218 00 00 00 11 		ld	AL,#.LC1
+ 664 021a 10 A4       		bsr	DebugWriteString
+ 665 021b F8 21       		.loc 1 117 0
+ 666 021c F8 11       		ld	AH,@dig_H5
+ 667 021d 00 00 00 00 		asr	#0x0010
+ 667      00 9C 
+ 668 0220 00 00 00 14 		st	AH,@0xfff8
+ 669 0222 00 00 00 00 		ld	AH,@0xfff8
+ 669      00 9C 
+ 116:sensor_bme280.c ****     DebugWriteUint16(dig_H4);DebugWriteString("\r\n"); 
+ 670                 	ntInDecimal
+ 671 0225 00 00 00 15 		ld	AL,#.LC22
+ 672 0227 00 00 00 00 		bsr	DebugWriteString
+ 672      00 9C 
+ 673 022a 00 00 00 14 		.loc 1 118 0
+ 674 022c 00 00 00 00 		ld	AL,@dig_H5
+ 674      00 9C 
+ 117:sensor_bme280.c ****     printInDecimal(dig_H5);DebugWriteString(" ←dig_H5 ");
+ 675                 	DebugWriteUint16
+ 676 022f 00 00 00 11 		ld	AL,#.LC1
+ 677 0231 10 A4       		bsr	DebugWriteString
+ 678 0232 F8 21       		.loc 1 119 0
+ 679 0233 F8 11       		ld	AH,@dig_H6
+ 680 0234 00 00 00 00 		asr	#0x0010
+ 680      00 9C 
+ 681 0237 00 00 00 14 		st	AH,@0xfff8
+ 682 0239 00 00 00 00 		ld	AH,@0xfff8
+ 682      00 9C 
+ 118:sensor_bme280.c ****     DebugWriteUint16(dig_H5);DebugWriteString("\r\n"); 
+ 683                 	ntInDecimal
+ 684 023c 00 00 00 15 		ld	AL,#.LC23
+ 685 023e 00 00 00 00 		bsr	DebugWriteString
+ 685      00 9C 
+ 686 0241 00 00 00 14 		.loc 1 120 0
+ 687 0243 00 00 00 00 		ld	AL,@dig_H6
+ 687      00 9C 
+ 119:sensor_bme280.c ****     printInDecimal(dig_H6);DebugWriteString("← dig_H6 ");
+ 688                 	DebugWriteUint16
+ 689 0246 00 00 00 11 		ld	AL,#.LC1
+ 690 0248 10 A4       		bsr	DebugWriteString
+ 691 0249 F8 21       		.loc 1 121 0
+ 692 024a F8 11       		leave	#0x0024
+ 693 024b 00 00 00 00 	.LFE5:
+ 693      00 9C 
+ 694 024e 00 00 00 14 		.size	BME280_Init, .-BME280_Init
+ 695 0250 00 00 00 00 		.global	__size_of_BME280_Init
+ 695      00 9C 
+ 120:sensor_bme280.c ****     DebugWriteUint16(dig_H6);DebugWriteString("\r\n");/**/
+ 696                 	size_of_BME280_Init,. - BME280_Init
+ 697 0253 00 00 00 15 		.section	.text.printUnDecimal,"ax",@progbits
+ 698 0255 00 00 00 00 		.global	printUnDecimal
+ 698      00 9C 
+ 699 0258 00 00 00 14 		.type	printUnDecimal, @function
+ 700 025a 00 00 00 00 	printUnDecimal:
+ 700      00 9C 
+ 121:sensor_bme280.c **** }
+ 701                 	:
+ 702 025d 24 0F       		.loc 1 18 0
+ 703                 	.LVL9:
+ 704                 		enter	#0x0005
+ 705                 	.LCFI4:
+ 706                 		st	AL,@(0x0003,Y)
+ 707                 	.LVL10:
+ 708                 		st	AH,@(0x0002,Y)
+ 709                 		.loc 1 19 0
+ 710                 	.LVL11:
+ 711                 		bmi	?LBGT1
+  18:sensor_bme280.c **** {   
+ 712                 	
+ 713                 		bra	.L22
+ 714 0000 05 0B       	?LBGT1:
+ 715                 		tst	@$XAP_AH
+ 716 0001 03 27       		bne	.L19
+ 717                 		cmp	AL,#0x000a
+ 718 0002 02 23       		bcs	.L19
+  19:sensor_bme280.c ****     if(val >= 10)
+ 719                 		.loc 1 20 0
+ 720                 		ld	AL,#0x0000
+ 721 0003 00 00 00 00 	.LVL12:
+ 721      00 EC 
+ 722 0006 00 00 00 00 		st	AL,@(0,Y)
+ 722      00 F4 
+ 723 0009 00 00 00 00 		ld	AL,#0x000a
+ 723      00 E0 
+ 724                 		st	AL,@(0x0001,Y)
+ 725 000c 00 00 00 99 		ld	AL,@(0x0003,Y)
+ 726 000e 00 00 00 00 		ld	AH,@(0x0002,Y)
+ 726      00 F0 
+ 727 0011 0A 84       		bsr	__divhi3
+ 728 0012 00 00 00 00 		bsr	printInDecimal
+ 728      00 FC 
+ 729                 	.LVL13:
+  20:sensor_bme280.c ****     {   printInDecimal(val/10);
+ 730                 	 1 22 0
+ 731 0015 00 14       		ld	AL,#0x0000
+ 732                 	.LVL14:
+ 733 0016 00 27       		st	AL,@(0,Y)
+ 734 0017 0A 14       		ld	AL,#0x000a
+ 735 0018 01 27       		st	AL,@(0x0001,Y)
+ 736 0019 03 17       		ld	AL,@(0x0003,Y)
+ 737 001a 02 13       		ld	AH,@(0x0002,Y)
+ 738 001b 00 00 00 00 		bsr	__modhi3
+ 738      00 9C 
+ 739 001e 00 00 00 00 		add	AL,#0x0030
+ 739      00 9C 
+ 740                 		bsr	DebugWriteChar
+ 741                 		.loc 1 23 0
+  22:sensor_bme280.c ****     DebugWriteChar(('0' + (val%10)));/*自身反复循环嵌套：内层为最高位，外层为最低位*/
+ 742                 	05
+ 743 0021 00 14       	.LFE3:
+ 744                 		.size	printUnDecimal, .-printUnDecimal
+ 745 0022 00 27       		.global	__size_of_printUnDecimal
+ 746 0023 0A 14       		.equ	__size_of_printUnDecimal,. - printUnDecimal
+ 747 0024 01 27       		.section	.rodata.str2.2
+ 748 0025 03 17       	.LC24:
+ 749 0026 02 13       		.ascii "Maintain final temperature data:\000"
+ 750 0027 00 00 00 00 	.LC25:
+ 750      00 9C 
+ 751 002a 30 34       		.ascii ".\000"
+ 752 002b 00 00 00 00 	.LC26:
+ 752      00 9C 
+  23:sensor_bme280.c **** }
+ 753                 	41\346\r\n\000"
+ 754 002e 05 0F       	.LC27:
+ 755                 		.ascii "Maintain final pressure data:   \000"
+ 756                 	.LC28:
+ 757                 		.ascii "Pa\r\n\000"
+ 758                 	.LC29:
+ 759                 		.ascii "Maintain final humidity data:   \000"
+ 760                 	.LC30:
+ 761 00e6 00 4D 00 61 		.ascii "%\r\n\000"
+ 761      00 69 00 6E 
+ 761      00 74 00 61 
+ 761      00 69 00 6E 
+ 761      00 20 00 66 
+ 762                 		.section	.text.BME280_compensation_int32,"ax",@progbits
+ 763 0107 00 2E 00 00 		.global	BME280_compensation_int32
+ 764                 		.type	BME280_compensation_int32, @function
+ 765 0109 00 A1 00 E6 	BME280_compensation_int32:
+ 765      00 0D 00 0A 
+ 765      00 00 
+ 766                 	.LFB7:
+ 767 010e 00 4D 00 61 		.loc 1 145 0
+ 767      00 69 00 6E 
+ 767      00 74 00 61 
+ 767      00 69 00 6E 
+ 767      00 20 00 66 
+ 768                 	.LVL15:
+ 769 012f 00 50 00 61 		enter	#0x0026
+ 769      00 0D 00 0A 
+ 769      00 00 
+ 770                 	.LCFI5:
+ 771 0134 00 4D 00 61 		st	AL,@(0x0015,Y)
+ 771      00 69 00 6E 
+ 771      00 74 00 61 
+ 771      00 69 00 6E 
+ 771      00 20 00 66 
+ 772                 		st	AH,@(0x0016,Y)
+ 773 0155 00 25 00 0D 		.loc 1 151 0
+ 773      00 0A 00 00 
+ 774                 		bsr	BME280_Getdata
+ 775                 	.LVL16:
+ 776                 		.loc 1 153 0
+ 777                 		ld	AH,@ut+0x0001
+ 778                 		st	AH,@(0x0014,Y)
+ 140:sensor_bme280.c **** 
+ 141:sensor_bme280.c **** // Returns temperature in DegC, resolution is 0.01 DegC. Output value of “5123” equals 51.23 DegC
+ 142:sensor_bme280.c **** // t_fine carries fine temperature as global value
+ 143:sensor_bme280.c **** uint8 BME280_compensation_int32(uint32 *T,uint32 *p,uint32 *h)
+ 144:sensor_bme280.c **** {
+ 779                 	,Y)
+ 780                 		ld	X,@dig_T1
+ 781 0000 26 0B       		st	X,@(0x0012,Y)
+ 782                 		ld	AH,#0x0000
+ 783 0001 15 27       		st	AH,@(0x0011,Y)
+ 784 0002 16 23       		.loc 1 154 0
+ 145:sensor_bme280.c **** 	int32 var1, var2, v_x1_u32r, t_fine; // T,
+ 146:sensor_bme280.c ****     var1=var2=0;//uint32 h;
+ 147:sensor_bme280.c ****     
+ 148:sensor_bme280.c ****     /*long ut=0;
+ 149:sensor_bme280.c ****     long up=0,uh=0;*/
+ 150:sensor_bme280.c ****     BME280_Getdata();
+ 785                 	,@(0x0014,Y)
+ 786 0003 00 00 00 00 		ld	AH,@(0x0013,Y)
+ 786      00 9C 
+ 787                 		asr	#0x0004
+ 151:sensor_bme280.c ****     
+ 152:sensor_bme280.c ****     var1 = ( ((ut>>3)-((int32)dig_T1<<1)) * ((int32)dig_T2) ) >>11;
+ 788                 	b	AL,@(0x0012,Y)
+ 789 0006 00 00 00 11 		subc	AH,@(0x0011,Y)
+ 790 0008 14 23       		st	AL,@0xfff9
+ 791 0009 00 00 00 15 		st	AH,@0xfff8
+ 792 000b 13 27       		.loc 1 156 0
+ 793 000c 00 00 00 19 		ld	AL,@0xfff8
+ 794 000e 12 2B       		smult	@0xfff9
+ 795 000f 00 10       		ld	X,@$XAP_AL
+ 796 0010 11 23       		add	X,@$XAP_AL
+ 153:sensor_bme280.c ****     var2 = ( ((((ut>>4)-((int32)dig_T1)) * ((ut>>4)-((int32)dig_T1)))>>12) * \
+ 797                 	xfff9
+ 798 0011 14 17       		umult	@0xfff9
+ 799 0012 13 13       		st	AH,@0xfff8
+ 800 0013 04 A4       		add	X,@0xfff8
+ 801 0014 12 57       		ld	AH,@$XAP_UXL
+ 802 0015 11 63       		asr	#0x000c
+ 803 0016 F9 25       		st	AL,@0xfff9
+ 804 0017 F8 21       		st	AH,@0xfff8
+ 154:sensor_bme280.c ****            ((int32)dig_T3) )>>14;
+ 155:sensor_bme280.c **** 	t_fine = var1 + var2;
+ 805                 	dig_T3
+ 806 0018 F8 15       		asr	#0x0010
+ 807 0019 F9 91       		st	AL,@0xfffb
+ 808 001a 00 00 00 19 		st	AH,@0xfffa
+ 809 001c 00 00 00 39 		ld	AL,@0xfff8
+ 810 001e F9 15       		smult	@0xfffb
+ 811 001f 00 09 F9 91 		st	AL,@0xfff8
+ 812 0021 F8 21       		ld	AL,@0xfffa
+ 813 0022 F8 39       		smult	@0xfff9
+ 814 0023 00 00 00 11 		ld	X,@$XAP_AL
+ 815 0025 0C A4       		add	X,@0xfff8
+ 816 0026 F9 25       		ld	AL,@0xfff9
+ 817 0027 F8 21       		umult	@0xfffb
+ 818 0028 00 00 00 11 		st	AH,@0xfffa
+ 819 002a 10 A4       		add	X,@0xfffa
+ 820 002b FB 25       		ld	AH,@$XAP_UXL
+ 821 002c FA 21       		asr	#0x000e
+ 822 002d F8 15       		st	AL,@0xfffb
+ 823 002e FB 91       		st	AH,@0xfffa
+ 824 002f F8 25       		ld	AL,@(0x0014,Y)
+ 825 0030 FA 15       		ld	AH,@(0x0013,Y)
+ 826 0031 F9 91       		asr	#0x0003
+ 827 0032 00 00 00 19 		st	AL,@(-2,Y)
+ 828 0034 F8 39       		st	AH,@(-1,Y)
+ 829 0035 F9 15       		ld	X,@(0x0012,Y)
+ 830 0036 00 09 FB 91 		ld	AL,@$XAP_UXL
+ 831 0038 FA 21       		ld	X,#0x0000
+ 832 0039 FA 39       		ld	AH,@$XAP_UXL
+ 833 003a 00 00 00 11 		asl	#0x0001
+ 834 003c 0E A4       		st	AL,@(0x0018,Y)
+ 835 003d FB 25       		st	AH,@(0x0017,Y)
+ 836 003e FA 21       		ld	AL,@(-2,Y)
+ 837 003f 14 17       		ld	AH,@(-1,Y)
+ 838 0040 13 13       		sub	AL,@(0x0018,Y)
+ 839 0041 03 A4       		subc	AH,@(0x0017,Y)
+ 840 0042 FE 27       		st	AL,@(-2,Y)
+ 841 0043 FF 23       		st	AH,@(-1,Y)
+ 842 0044 12 1B       		ld	AH,@dig_T2
+ 843 0045 00 00 00 15 		asr	#0x0010
+ 844 0047 00 18       		st	AL,@0xfff9
+ 845 0048 00 00 00 11 		st	AH,@0xfff8
+ 846 004a 01 A0       		ld	AL,@(-1,Y)
+ 847 004b 18 27       		smult	@0xfff9
+ 848 004c 17 23       		st	AL,@(0x0024,Y)
+ 849 004d FE 17       		ld	AL,@0xfff8
+ 850 004e FF 13       		smult	@(-2,Y)
+ 851 004f 18 57       		ld	X,@$XAP_AL
+ 852 0050 17 63       		add	X,@(0x0024,Y)
+ 853 0051 FE 27       		ld	AL,@(-2,Y)
+ 854 0052 FF 23       		umult	@0xfff9
+ 855 0053 00 00 00 11 		st	AH,@0xfff8
+ 856 0055 10 A4       		add	X,@0xfff8
+ 857 0056 F9 25       		ld	AH,@$XAP_UXL
+ 858 0057 F8 21       		asr	#0x000b
+ 859 0058 FF 17       		st	AL,@0xfff9
+ 860 0059 F9 91       		st	AH,@0xfff8
+ 861 005a 24 27       		ld	AL,@0xfffb
+ 862 005b F8 15       		ld	AH,@0xfffa
+ 863 005c FE 93       		add	AL,@0xfff9
+ 864 005d 00 00 00 19 		addc	AH,@0xfff8
+ 865 005f 24 3B       		st	AL,@(0x0007,Y)
+ 866 0060 FE 17       	.LVL17:
+ 867 0061 00 09 F9 91 		st	AH,@(0x0006,Y)
+ 868 0063 F8 21       	.LVL18:
+ 869 0064 F8 39       		.loc 1 157 0
+ 870 0065 00 00 00 11 		ld	AL,@$XAP_AH
+ 871 0067 0B A4       		smult	#0x0005
+ 872 0068 F9 25       		ld	X,@$XAP_AL
+ 873 0069 F8 21       		ld	AL,@(0x0007,Y)
+ 874 006a FB 15       		umult	#0x0005
+ 875 006b FA 11       		st	AH,@0xfff8
+ 876 006c F9 35       		add	X,@0xfff8
+ 877 006d F8 41       		ld	AH,@$XAP_UXL
+ 878 006e 07 27       		add	AL,#0x0080
+ 879                 		addc	AH,#0x0000
+ 880 006f 06 23       		st	AL,@(0x001a,Y)
+ 881                 		st	AH,@(0x0019,Y)
+ 156:sensor_bme280.c **** 	*T = (t_fine * 5 + 128) >> 8;
+ 882                 	(0x0001,X)
+ 883 0070 00 00 00 15 		st	AH,@(0,X)
+ 884 0072 05 90       		.loc 1 158 0
+ 885 0073 00 00 00 19 		ld	AL,#.LC24
+ 886 0075 07 17       		bsr	DebugWriteString
+ 887 0076 00 09 05 90 		.loc 1 159 0
+ 888 0078 F8 21       		ld	X,@(0x0015,Y)
+ 889 0079 F8 39       		ld	AL,@(0x0001,X)
+ 890 007a 00 00 00 11 		ld	AH,@(0,X)
+ 891 007c 01 00 80 34 		bsr	DebugWriteUint32
+ 892 007e 00 40       		ld	AL,#.LC0
+ 893 007f 1A 27       		bsr	DebugWriteString
+ 894 0080 19 23       		.loc 1 160 0
+ 895 0081 1A 17       		ld	X,@(0x0015,Y)
+ 896 0082 19 13       		ld	AL,@(0x0001,X)
+ 897 0083 08 A4       		ld	AH,@(0,X)
+ 898 0084 15 1B       		ld	X,#0x0000
+ 899 0085 01 26       		st	X,@(0,Y)
+ 900 0086 00 22       		ld	X,#0x0064
+ 157:sensor_bme280.c **** 	DebugWriteString("Maintain final temperature data:");
+ 901                 	bsr	__udivhi3
+ 902 0087 00 00 00 14 		bsr	printInDecimal
+ 903 0089 00 00 00 00 		ld	AL,#.LC25
+ 903      00 9C 
+ 158:sensor_bme280.c ****     DebugWriteUint32((unsigned long)*T);DebugWriteString(" ");
+ 904                 	r	DebugWriteString
+ 905 008c 15 1B       		.loc 1 161 0
+ 906 008d 01 16       		ld	X,@(0x0015,Y)
+ 907 008e 00 12       		ld	AL,@(0x0001,X)
+ 908 008f 00 00 00 00 		ld	AH,@(0,X)
+ 908      00 9C 
+ 909 0092 00 00 00 14 		ld	X,#0x0000
+ 910 0094 00 00 00 00 		st	X,@(0,Y)
+ 910      00 9C 
+ 159:sensor_bme280.c ****     printInDecimal(*T/100);DebugWriteString(".");
+ 911                 	0x0064
+ 912 0097 15 1B       		st	X,@(0x0001,Y)
+ 913 0098 01 16       		bsr	__umodhi3
+ 914 0099 00 12       		bsr	printUnDecimal
+ 915 009a 00 18       		ld	AL,#.LC26
+ 916 009b 00 2B       		bsr	DebugWriteString
+ 917 009c 64 18       		.loc 1 164 0
+ 918 009d 01 2B       		ld	AL,@(0x0007,Y)
+ 919 009e 00 00 00 00 		ld	AH,@(0x0006,Y)
+ 919      00 9C 
+ 920 00a1 00 00 00 00 		asr	#0x0001
+ 920      00 9C 
+ 921 00a4 00 00 00 14 		st	AH,@0xfff8
+ 922 00a6 00 00 00 00 		ld	AH,@0xfff8
+ 922      00 9C 
+ 160:sensor_bme280.c ****     printUnDecimal(*T%100);DebugWriteString("℃\r\n");
+ 923                 	600
+ 924 00a9 15 1B       		addc	AH,#0xffff
+ 925 00aa 01 16       		st	AL,@(0x0005,Y)
+ 926 00ab 00 12       	.LVL19:
+ 927 00ac 00 18       		st	AH,@(0x0004,Y)
+ 928 00ad 00 2B       	.LVL20:
+ 929 00ae 64 18       		.loc 1 165 0
+ 930 00af 01 2B       		ld	AL,@(0x0005,Y)
+ 931 00b0 00 00 00 00 		ld	AH,@(0x0004,Y)
+ 931      00 9C 
+ 932 00b3 00 00 00 00 		asr	#0x0002
+ 932      00 9C 
+ 933 00b6 00 00 00 14 		st	AL,@0xfff9
+ 934 00b8 00 00 00 00 		st	AH,@0xfff8
+ 934      00 9C 
+ 161:sensor_bme280.c ****     
+ 162:sensor_bme280.c ****     // Returns pressure in Pa as unsigned 32 bit integer. Output value of “96386” equals 96386 Pa
+ 163:sensor_bme280.c ****     var1 = (((int32)t_fine)>>1) - (int32)64000;
+ 935                 	f8
+ 936 00bb 07 17       		smult	@0xfff9
+ 937 00bc 06 13       		ld	X,@$XAP_AL
+ 938 00bd 01 A4       		add	X,@$XAP_AL
+ 939 00be F8 21       		ld	AL,@0xfff9
+ 940 00bf F8 11       		umult	@0xfff9
+ 941 00c0 06 00 00 34 		st	AL,@(-2,Y)
+ 942 00c2 FF 40       		st	AH,@(-1,Y)
+ 943 00c3 05 27       		add	X,@(-1,Y)
+ 944                 		st	X,@(-1,Y)
+ 945 00c4 04 23       		ld	X,@dig_P6
+ 946                 		st	X,@(0x0010,Y)
+ 164:sensor_bme280.c ****     var2 = (((var1>>2)*(var1>>2))>>11) * ((int32)dig_P6);
+ 947                 	0
+ 948 00c5 05 17       		ld	AH,@dig_P5
+ 949 00c6 04 13       		st	AH,@(0x000f,Y)
+ 950 00c7 02 A4       		.loc 1 167 0
+ 951 00c8 F9 25       		ld	AL,@dig_P4
+ 952 00c9 F8 21       		st	AL,@(0x000e,Y)
+ 953 00ca F8 15       		.loc 1 168 0
+ 954 00cb F9 91       		ld	AL,@(-2,Y)
+ 955 00cc 00 00 00 19 		ld	AH,@(-1,Y)
+ 956 00ce 00 00 00 39 		asr	#0x000d
+ 957 00d0 F9 15       		st	AL,@0xfffb
+ 958 00d1 00 09 F9 91 		st	AH,@0xfffa
+ 959 00d3 FE 27       		ld	AH,@dig_P3
+ 960 00d4 FF 23       		asr	#0x0010
+ 961 00d5 FF 3B       		st	AL,@0xfff9
+ 962 00d6 FF 2B       		st	AH,@0xfff8
+ 963 00d7 00 00 00 19 		ld	AL,@0xfffa
+ 964 00d9 10 2B       		smult	@0xfff9
+ 165:sensor_bme280.c **** 	var2 = var2 + ((var1*((int32)dig_P5))<<1);
+ 965                 	
+ 966 00da 00 00 00 11 		ld	AL,@0xfff8
+ 967 00dc 0F 23       		smult	@0xfffb
+ 166:sensor_bme280.c **** 	var2 = (var2>>2)+(((int32)dig_P4)<<16);
+ 968                 	d	X,@$XAP_AL
+ 969 00dd 00 00 00 15 		add	X,@(0x0024,Y)
+ 970 00df 0E 27       		ld	AL,@0xfffb
+ 167:sensor_bme280.c **** 	var1 = (((dig_P3 * (((var1>>2) * (var1>>2)) >> 13 )) >> 3) + ((((int32)dig_P2) * var1)>>1))>>18;
+ 971                 	ult	@0xfff9
+ 972 00e0 FE 17       		st	AH,@0xfffa
+ 973 00e1 FF 13       		add	X,@0xfffa
+ 974 00e2 0D A4       		ld	AH,@$XAP_UXL
+ 975 00e3 FB 25       		asr	#0x0003
+ 976 00e4 FA 21       		st	AL,@0xfffb
+ 977 00e5 00 00 00 11 		st	AH,@0xfffa
+ 978 00e7 10 A4       		ld	AH,@dig_P2
+ 979 00e8 F9 25       		asr	#0x0010
+ 980 00e9 F8 21       		st	AL,@0xfff9
+ 981 00ea FA 15       		st	AH,@0xfff8
+ 982 00eb F9 91       		ld	AL,@(0x0004,Y)
+ 983 00ec 24 27       		smult	@0xfff9
+ 984 00ed F8 15       		st	AL,@(0x0024,Y)
+ 985 00ee FB 91       		ld	AL,@(0x0005,Y)
+ 986 00ef 00 00 00 19 		smult	@0xfff8
+ 987 00f1 24 3B       		ld	X,@$XAP_AL
+ 988 00f2 FB 15       		add	X,@(0x0024,Y)
+ 989 00f3 00 09 F9 91 		ld	AL,@(0x0005,Y)
+ 990 00f5 FA 21       		umult	@0xfff9
+ 991 00f6 FA 39       		st	AH,@0xfff8
+ 992 00f7 00 00 00 11 		add	X,@0xfff8
+ 993 00f9 03 A4       		ld	AH,@$XAP_UXL
+ 994 00fa FB 25       		asr	#0x0001
+ 995 00fb FA 21       		st	AL,@0xfff9
+ 996 00fc 00 00 00 11 		st	AH,@0xfff8
+ 997 00fe 10 A4       		ld	AL,@0xfffb
+ 998 00ff F9 25       		ld	AH,@0xfffa
+ 999 0100 F8 21       		add	AL,@0xfff9
+ 1000 0101 04 17       		addc	AH,@0xfff8
+ 1001 0102 F9 91       		st	AL,@(0x000d,Y)
+ 1002 0103 24 27       		st	AH,@(0x000c,Y)
+ 1003 0104 05 17       		.loc 1 169 0
+ 1004 0105 F8 91       		ld	AL,@(0x000d,Y)
+ 1005 0106 00 00 00 19 		ld	AH,@(0x000c,Y)
+ 1006 0108 24 3B       		asr	#0x0012
+ 1007 0109 05 17       		st	AH,@0xfff8
+ 1008 010a 00 09 F9 91 		ld	AH,@0xfff8
+ 1009 010c F8 21       		add	AL,#0x8000
+ 1010 010d F8 39       		addc	AH,#0x0000
+ 1011 010e 00 00 00 11 		st	AH,@0xfffa
+ 1012 0110 01 A4       		st	AL,@0xfffb
+ 1013 0111 F9 25       		ld	AL,@dig_P1
+ 1014 0112 F8 21       		st	AL,@0xfff8
+ 1015 0113 FB 15       		ld	AL,@0xfffa
+ 1016 0114 FA 11       		smult	@0xfff8
+ 1017 0115 F9 35       		ld	X,@$XAP_AL
+ 1018 0116 F8 41       		ld	AL,@0xfffb
+ 1019 0117 0D 27       		umult	@0xfff8
+ 1020 0118 0C 23       		st	AH,@0xfff8
+ 168:sensor_bme280.c **** 	var1 =((((32768+var1))*((int32)dig_P1))>>15);
+ 1021                 	L,@(0x0003,Y)
+ 1022 0119 0D 17       	.LVL21:
+ 1023 011a 0C 13       		st	AH,@(0x0002,Y)
+ 1024 011b 12 A4       	.LVL22:
+ 1025 011c F8 21       		.loc 1 170 0
+ 1026 011d F8 11       		ld	AL,@(0x0002,Y)
+ 1027 011e 80 00 00 34 		ld	X,@(0x0003,Y)
+ 1028 0120 00 40       		or	AL,@$XAP_UXL
+ 1029 0121 FA 21       		beq	.L25
+ 1030 0122 FB 25       		.loc 1 165 0
+ 1031 0123 00 00 00 15 		ld	AL,@(-2,Y)
+ 1032 0125 F8 25       		ld	AH,@(-1,Y)
+ 1033 0126 FA 15       		asr	#0x000b
+ 1034 0127 F8 91       		st	AL,@0xfffb
+ 1035 0128 00 00 00 19 		st	AH,@0xfffa
+ 1036 012a FB 15       		ld	AH,@(0x0010,Y)
+ 1037 012b 00 09 F8 91 		asr	#0x0010
+ 1038 012d F8 21       		st	AL,@0xfff9
+ 1039 012e F8 39       		st	AH,@0xfff8
+ 1040 012f 00 00 00 11 		ld	AL,@0xfffa
+ 1041 0131 0F A4       		smult	@0xfff9
+ 1042 0132 03 27       		st	AL,@(-1,Y)
+ 1043                 		ld	AL,@0xfff8
+ 1044 0133 02 23       		smult	@0xfffb
+ 1045                 		ld	X,@$XAP_AL
+ 169:sensor_bme280.c **** 	if (var1 == 0)
+ 1046                 	fffb
+ 1047 0134 02 17       		umult	@0xfff9
+ 1048 0135 03 1B       		st	AL,@0xfffb
+ 1049 0136 00 00 00 B5 	.LVL23:
+ 1050 0138 00 00 00 00 		st	AH,@0xfffa
+ 1050      00 F4 
+ 165:sensor_bme280.c ****     var2 = (((var1>>2)*(var1>>2))>>11) * ((int32)dig_P6);
+ 1051                 	4:
+ 1052 013b FE 17       		add	X,@0xfffa
+ 1053 013c FF 13       		st	X,@0xfffa
+ 1054 013d 0B A4       	.LVL25:
+ 1055 013e FB 25       		.loc 1 167 0
+ 1056 013f FA 21       		ld	AH,@(0x000f,Y)
+ 1057 0140 10 13       		asr	#0x0010
+ 1058 0141 10 A4       		st	AL,@0xfff9
+ 1059 0142 F9 25       		st	AH,@0xfff8
+ 1060 0143 F8 21       		ld	AL,@(0x0004,Y)
+ 1061 0144 FA 15       		smult	@0xfff9
+ 1062 0145 F9 91       		st	AL,@(-1,Y)
+ 1063 0146 FF 27       		ld	AL,@(0x0005,Y)
+ 1064 0147 F8 15       		smult	@0xfff8
+ 1065 0148 FB 91       		ld	X,@$XAP_AL
+ 1066 0149 00 00 00 19 		add	X,@(-1,Y)
+ 1067 014b FF 3B       		ld	AL,@(0x0005,Y)
+ 1068 014c FB 15       		umult	@0xfff9
+ 1069 014d 00 09 F9 91 		st	AH,@0xfff8
+ 1070 014f FB 25       		add	X,@0xfff8
+ 1071                 		ld	AH,@$XAP_UXL
+ 1072 0150 FA 21       		asl	#0x0001
+ 1073                 		st	AL,@0xfff9
+ 1074 0151 FA 39       		st	AH,@0xfff8
+ 1075 0152 FA 29       		ld	AL,@0xfffb
+ 1076                 		ld	AH,@0xfffa
+ 167:sensor_bme280.c **** 	var2 = (var2>>2)+(((int32)dig_P4)<<16);
+ 1077                 	ddc	AH,@0xfff8
+ 1078 0153 0F 13       		st	AH,@0xfffa
+ 1079 0154 10 A4       	.LVL27:
+ 1080 0155 F9 25       		ld	AH,@0xfffa
+ 1081 0156 F8 21       		asr	#0x0002
+ 1082 0157 04 17       		st	AL,@0xfffb
+ 1083 0158 F9 91       	.LVL28:
+ 1084 0159 FF 27       		st	AH,@0xfffa
+ 1085 015a 05 17       		.loc 1 174 0
+ 1086 015b F8 91       		ld	AL,@up+0x0001
+ 1087 015c 00 00 00 19 		ld	AH,@up
+ 1088 015e FF 3B       		nadd	AL,#0x0000
+ 1089 015f 05 17       		xor	AH,#0xffff
+ 1090 0160 00 09 F9 91 		addc	AH,#0x0000
+ 1091 0162 F8 21       		st	AL,@(-2,Y)
+ 1092 0163 F8 39       		st	AH,@(-1,Y)
+ 1093 0164 00 00 00 11 		ld	AH,@(0x000e,Y)
+ 1094 0166 01 A0       		asr	#0x0010
+ 1095 0167 F9 25       		st	AH,@0xfff8
+ 1096 0168 F8 21       		ld	AH,@0xfff8
+ 1097 0169 FB 15       		asl	#0x0010
+ 1098 016a FA 11       		st	AL,@0xfff9
+ 1099                 		st	AH,@0xfff8
+ 1100 016b F9 35       		ld	AL,@0xfffb
+ 1101 016c F8 41       		ld	AH,@0xfffa
+ 1102 016d FA 21       		add	AL,@0xfff9
+ 1103                 		addc	AH,@0xfff8
+ 1104 016e FA 11       		st	AH,@0xfff8
+ 1105 016f 02 A4       		ld	AH,@0xfff8
+ 1106 0170 FB 25       		asr	#0x000c
+ 1107                 		st	AL,@0xfff9
+ 1108 0171 FA 21       		st	AH,@0xfff8
+ 170:sensor_bme280.c **** 	{
+ 171:sensor_bme280.c **** 		return 0; // avoid exception caused by division by zero
+ 172:sensor_bme280.c **** 	}
+ 173:sensor_bme280.c **** 	*p = (((uint32)(((int32)1048576)-up)-(var2>>12)))*3125;
+ 1109                 	ub	AL,@0xfff9
+ 1110 0172 00 00 00 15 		subc	AH,@0xfff8
+ 1111 0174 00 00 00 11 		st	AL,@(-2,Y)
+ 1112 0176 00 74       		st	AH,@(-1,Y)
+ 1113 0177 FF D0       		ld	AL,@(-1,Y)
+ 1114 0178 00 40       		smult	#0x0c35
+ 1115 0179 FE 27       		ld	X,@$XAP_AL
+ 1116 017a FF 23       		ld	AL,@(-2,Y)
+ 1117 017b 0E 13       		umult	#0x0c35
+ 1118 017c 10 A4       		st	AH,@0xfff8
+ 1119 017d F8 21       		add	X,@0xfff8
+ 1120 017e F8 11       		ld	AH,@$XAP_UXL
+ 1121 017f 10 A0       		add	AL,#0x0000
+ 1122 0180 F9 25       		addc	AH,#0xc350
+ 1123 0181 F8 21       		ld	X,@(0x0016,Y)
+ 1124 0182 FB 15       		st	AL,@(0x0001,X)
+ 1125 0183 FA 11       		st	AH,@(0,X)
+ 1126 0184 F9 35       		.loc 1 175 0
+ 1127 0185 F8 41       		bmi	.L26
+ 1128 0186 F8 21       	.LVL29:
+ 1129 0187 F8 11       		.loc 1 177 0
+ 1130 0188 0C A4       		asl	#0x0001
+ 1131 0189 F9 25       		ld	X,@(0x0003,Y)
+ 1132 018a F8 21       		st	X,@(0x0001,Y)
+ 1133 018b FE 17       		ld	X,@(0x0002,Y)
+ 1134 018c FF 13       		st	X,@(0,Y)
+ 1135 018d F9 55       		bsr	__udivhi3
+ 1136 018e F8 61       		bra	.L35
+ 1137 018f FE 27       	.L26:
+ 1138 0190 FF 23       		.loc 1 181 0
+ 1139 0191 FF 17       		ld	X,@(0x0003,Y)
+ 1140 0192 0C 00 35 90 		st	X,@(0x0001,Y)
+ 1141 0194 00 00 00 19 		ld	X,@(0x0002,Y)
+ 1142 0196 FE 17       		st	X,@(0,Y)
+ 1143 0197 00 09 0C 00 		bsr	__udivhi3
+ 1143      35 90 
+ 1144 019a F8 21       		asl	#0x0001
+ 1145 019b F8 39       	.LVL30:
+ 1146 019c 00 00 00 11 	.L35:
+ 1147 019e 00 34       		ld	X,@(0x0016,Y)
+ 1148 019f C3 00 50 40 		st	AL,@(0x0001,X)
+ 1149 01a1 16 1B       		st	AH,@(0,X)
+ 1150 01a2 01 26       		.loc 1 183 0
+ 1151 01a3 00 22       		ld	X,@(0x0016,Y)
+ 174:sensor_bme280.c **** 	if (*p < 0x80000000)
+ 1152                 	(0x0016,Y)
+ 1153 01a4 00 00 00 00 		ld	X,@(0,X)
+ 1153      00 EC 
+ 1154                 		st	X,@(0x000a,Y)
+ 175:sensor_bme280.c **** 	{
+ 176:sensor_bme280.c **** 		*p = (*p << 1) / ((uint32)var1);
+ 1155                 		AL,@(0x000b,Y)
+ 1156 01a7 01 A0       		ld	AH,@(0x000a,Y)
+ 1157 01a8 03 1B       		lsr	#0x0003
+ 1158 01a9 01 2B       		st	AL,@(-2,Y)
+ 1159 01aa 02 1B       		st	AH,@(-1,Y)
+ 1160 01ab 00 2B       		.loc 1 186 0
+ 1161 01ac 00 00 00 00 		ld	AL,@(0x000b,Y)
+ 1161      00 9C 
+ 1162 01af 00 00 00 00 		ld	AH,@(0x000a,Y)
+ 1162      00 E0 
+ 1163                 		lsr	#0x0002
+ 177:sensor_bme280.c **** 	}
+ 178:sensor_bme280.c **** 	else
+ 179:sensor_bme280.c **** 	{
+ 180:sensor_bme280.c **** 		*p = (*p / (uint32)var1) * 2;
+ 1164                 	xfffb
+ 1165 01b2 03 1B       		st	AH,@0xfffa
+ 1166 01b3 01 2B       		ld	AH,@dig_P8
+ 1167 01b4 02 1B       		asr	#0x0010
+ 1168 01b5 00 2B       		st	AL,@0xfff9
+ 1169 01b6 00 00 00 00 		st	AH,@0xfff8
+ 1169      00 9C 
+ 1170 01b9 01 A0       		ld	AL,@0xfffa
+ 1171                 		smult	@0xfff9
+ 1172                 		st	AL,@0xfffa
+ 1173 01ba 16 1B       		ld	AL,@0xfff8
+ 1174 01bb 01 26       		smult	@0xfffb
+ 1175 01bc 00 22       		ld	X,@$XAP_AL
+ 181:sensor_bme280.c **** 	}
+ 182:sensor_bme280.c **** 	var1 = (((int32)dig_P9) * ((int32)(((*p>>3) * (*p>>3))>>13)))>>12;
+ 1176                 	fa
+ 1177 01bd 16 1B       		ld	AL,@0xfffb
+ 1178 01be 01 1A       		umult	@0xfff9
+ 1179 01bf 0B 2B       		st	AH,@0xfff8
+ 1180 01c0 16 1B       		add	X,@0xfff8
+ 1181 01c1 00 1A       		ld	AH,@$XAP_UXL
+ 1182 01c2 0A 2B       		asr	#0x000d
+ 1183 01c3 0B 17       		st	AL,@0xfff9
+ 1184 01c4 0A 13       		st	AH,@0xfff8
+ 1185 01c5 00 09 03 A4 		ld	AH,@dig_P7
+ 1186 01c7 FE 27       		asr	#0x0010
+ 1187 01c8 FF 23       		st	AL,@0xfffb
+ 183:sensor_bme280.c **** 	var2 = (((int32)(*p>>2)) * ((int32)dig_P8))>>13;
+ 184:sensor_bme280.c **** 	*p = (uint32)((int32)*p + ((var1 + var2 + dig_P7) >> 4));
+ 185:sensor_bme280.c ****     *p= (unsigned long)*p;
+ 1188                 	fa
+ 1189 01c9 0B 17       		ld	AL,@0xfff9
+ 1190 01ca 0A 13       		ld	AH,@0xfff8
+ 1191 01cb 00 09 02 A4 		add	AL,@0xfffb
+ 1192 01cd FB 25       		addc	AH,@0xfffa
+ 1193 01ce FA 21       		st	AL,@(0x0024,Y)
+ 1194 01cf 00 00 00 11 		st	AH,@(0x0023,Y)
+ 1195 01d1 10 A4       		ld	AL,@(-1,Y)
+ 1196 01d2 F9 25       		smult	@(-2,Y)
+ 1197 01d3 F8 21       		ld	X,@$XAP_AL
+ 1198 01d4 FA 15       		add	X,@$XAP_AL
+ 1199 01d5 F9 91       		ld	AL,@(-2,Y)
+ 1200 01d6 FA 25       		umult	@(-2,Y)
+ 1201 01d7 F8 15       		st	AH,@0xfff8
+ 1202 01d8 FB 91       		add	X,@0xfff8
+ 1203 01d9 00 00 00 19 		ld	AH,@$XAP_UXL
+ 1204 01db FA 39       		lsr	#0x000d
+ 1205 01dc FB 15       		st	AL,@0xfff9
+ 1206 01dd 00 09 F9 91 		st	AH,@0xfff8
+ 1207 01df F8 21       		ld	AH,@dig_P9
+ 1208 01e0 F8 39       		asr	#0x0010
+ 1209 01e1 00 00 00 11 		st	AL,@0xfffb
+ 1210 01e3 0D A4       		st	AH,@0xfffa
+ 1211 01e4 F9 25       		ld	AL,@0xfff8
+ 1212 01e5 F8 21       		smult	@0xfffb
+ 1213 01e6 00 00 00 11 		ld	X,@$XAP_AL
+ 1214 01e8 10 A4       		ld	AL,@0xfffa
+ 1215 01e9 FB 25       		smult	@0xfff9
+ 1216 01ea FA 21       		add	X,@$XAP_AL
+ 1217 01eb F9 15       		ld	AL,@0xfff9
+ 1218 01ec F8 11       		umult	@0xfffb
+ 1219 01ed FB 35       		st	AH,@0xfff8
+ 1220 01ee FA 41       		add	X,@0xfff8
+ 1221 01ef 24 27       		ld	AH,@$XAP_UXL
+ 1222 01f0 23 23       		asr	#0x000c
+ 1223 01f1 FF 17       		st	AL,@0xfff9
+ 1224 01f2 FE 93       		st	AH,@0xfff8
+ 1225 01f3 00 00 00 19 		ld	AL,@(0x0024,Y)
+ 1226 01f5 00 00 00 39 		ld	AH,@(0x0023,Y)
+ 1227 01f7 FE 17       		add	AL,@0xfff9
+ 1228 01f8 00 09 FE 93 		addc	AH,@0xfff8
+ 1229 01fa F8 21       		st	AH,@0xfff8
+ 1230 01fb F8 39       		ld	AH,@0xfff8
+ 1231 01fc 00 00 00 11 		asr	#0x0004
+ 1232 01fe 00 09 0D A4 		st	AH,@0xfff8
+ 1233 0200 F9 25       		ld	AH,@0xfff8
+ 1234 0201 F8 21       		add	AL,@(0x000b,Y)
+ 1235 0202 00 00 00 11 		addc	AH,@(0x000a,Y)
+ 1236 0204 10 A4       		ld	X,@(0x0016,Y)
+ 1237 0205 FB 25       		st	AL,@(0x0001,X)
+ 1238 0206 FA 21       		st	AH,@(0,X)
+ 1239 0207 F8 15       		.loc 1 187 0
+ 1240 0208 FB 91       		ld	AL,#.LC27
+ 1241 0209 00 00 00 19 		bsr	DebugWriteString
+ 1242 020b FA 15       		.loc 1 188 0
+ 1243 020c F9 91       		ld	X,@(0x0016,Y)
+ 1244 020d 00 00 00 39 		ld	AL,@(0x0001,X)
+ 1245 020f F9 15       		ld	AH,@(0,X)
+ 1246 0210 00 09 FB 91 		bsr	DebugWriteUint32
+ 1247 0212 F8 21       		ld	AL,#.LC0
+ 1248 0213 F8 39       		bsr	DebugWriteString
+ 1249 0214 00 00 00 11 		.loc 1 189 0
+ 1250 0216 0C A4       		ld	X,@(0x0016,Y)
+ 1251 0217 F9 25       		ld	AL,@(0x0001,X)
+ 1252 0218 F8 21       		ld	AH,@(0,X)
+ 1253 0219 24 17       		bsr	printInDecimal
+ 1254 021a 23 13       		ld	AL,#.LC28
+ 1255 021b F9 35       		bsr	DebugWriteString
+ 1256 021c F8 41       		.loc 1 193 0
+ 1257 021d F8 21       		ld	AH,@(0x0007,Y)
+ 1258 021e F8 11       		ld	AL,@$XAP_AH
+ 1259 021f 04 A4       		ld	X,@(0x0006,Y)
+ 1260 0220 F8 21       		ld	AH,@$XAP_UXL
+ 1261 0221 F8 11       		add	AL,#0xd400
+ 1262 0222 0B 37       		addc	AH,#0xfffe
+ 1263 0223 0A 43       		st	AH,@(-2,Y)
+ 1264 0224 16 1B       	.LVL31:
+ 1265 0225 01 26       		st	AL,@0xfffa
+ 1266 0226 00 22       	.LVL32:
+ 186:sensor_bme280.c **** 	DebugWriteString("Maintain final pressure data:   ");
+ 1267                 	H,#0x0000
+ 1268 0227 00 00 00 14 		st	AL,@(0x001c,Y)
+ 1269 0229 00 00 00 00 		st	AH,@(0x001b,Y)
+ 1269      00 9C 
+ 187:sensor_bme280.c ****     DebugWriteUint32(*p);DebugWriteString(" ");
+ 1270                 		AH,@dig_H4
+ 1271 022c 16 1B       		asr	#0x0010
+ 1272 022d 01 16       		st	AH,@0xfff8
+ 1273 022e 00 12       		ld	AH,@0xfff8
+ 1274 022f 00 00 00 00 		asl	#0x0014
+ 1274      00 9C 
+ 1275 0232 00 00 00 14 		st	AL,@(0x001e,Y)
+ 1276 0234 00 00 00 00 		st	AH,@(0x001d,Y)
+ 1276      00 9C 
+ 188:sensor_bme280.c ****     printInDecimal(*p);DebugWriteString("Pa\r\n");
+ 1277                 	@(0x001c,Y)
+ 1278 0237 16 1B       		ld	AH,@(0x001b,Y)
+ 1279 0238 01 16       		sub	AL,@(0x001e,Y)
+ 1280 0239 00 12       		subc	AH,@(0x001d,Y)
+ 1281 023a 00 00 00 00 		st	AL,@(0x001c,Y)
+ 1281      00 9C 
+ 1282 023d 00 00 00 14 		st	AH,@(0x001b,Y)
+ 1283 023f 00 00 00 00 		ld	AH,@dig_H5
+ 1283      00 9C 
+ 189:sensor_bme280.c ****     
+ 190:sensor_bme280.c ****     // Returns humidity in %RH as unsigned 32 bit integer in Q22.10 format (22 integer and 10 fract
+ 191:sensor_bme280.c ****     // Output value of “47445” represents 47445/1024 = 46.333 %RH
+ 192:sensor_bme280.c ****     v_x1_u32r =t_fine-((int32)76800);
+ 1284                 	x0010
+ 1285 0242 07 13       		st	AL,@0xfff9
+ 1286 0243 00 00 00 15 		st	AH,@0xfff8
+ 1287 0245 06 1B       		ld	AL,@(-2,Y)
+ 1288 0246 00 00 00 11 		smult	@0xfff9
+ 1289 0248 D4 00 00 34 		ld	X,@$XAP_AL
+ 1290 024a FE 40       		ld	AL,@0xfff8
+ 1291 024b FE 23       		smult	@0xfffa
+ 1292                 		add	X,@$XAP_AL
+ 1293 024c FA 25       		ld	AL,@0xfffa
+ 1294                 		umult	@0xfff9
+ 193:sensor_bme280.c ****     v_x1_u32r = (( ((uh<<14)-(((int32)dig_H4)<<20)-(((int32)dig_H5)*v_x1_u32r))+\
+ 1295                 	ff9
+ 1296 024d 00 00 00 15 		st	AH,@0xfff8
+ 1297 024f 00 00 00 11 		add	X,@0xfff8
+ 1298 0251 0E A0       		st	X,@0xfff8
+ 1299 0252 40 00 00 34 		ld	AL,@(0x001c,Y)
+ 1300 0254 00 40       		ld	AH,@(0x001b,Y)
+ 1301 0255 1C 27       		sub	AL,@0xfff9
+ 1302 0256 1B 23       		subc	AH,@0xfff8
+ 1303 0257 00 00 00 11 		asr	#0x000f
+ 1304 0259 10 A4       		st	AL,@(0x0009,Y)
+ 1305 025a F8 21       		st	AH,@(0x0008,Y)
+ 1306 025b F8 11       		ld	AL,@dig_H3
+ 1307 025c 14 A0       		st	AL,@0xfff8
+ 1308 025d 1E 27       		ld	AL,@(-2,Y)
+ 1309 025e 1D 23       		smult	@0xfff8
+ 1310 025f 1C 17       		ld	X,@$XAP_AL
+ 1311 0260 1B 13       		ld	AL,@0xfffa
+ 1312 0261 1E 57       		umult	@0xfff8
+ 1313 0262 1D 63       		st	AH,@0xfff8
+ 1314 0263 1C 27       		add	X,@0xfff8
+ 1315 0264 1B 23       		ld	AH,@$XAP_UXL
+ 1316 0265 00 00 00 11 		asr	#0x000b
+ 1317 0267 10 A4       		st	AH,@0xfff8
+ 1318 0268 F9 25       		ld	AH,@0xfff8
+ 1319 0269 F8 21       		add	AL,#0x8000
+ 1320 026a FE 17       		addc	AH,#0x0000
+ 1321 026b F9 91       		st	AH,@(-1,Y)
+ 1322 026c 00 00 00 19 		st	AL,@0xfffb
+ 1323 026e F8 15       		ld	AH,@dig_H6
+ 1324 026f FA 91       		asr	#0x0010
+ 1325 0270 00 00 00 39 		st	AL,@0xfff9
+ 1326 0272 FA 15       		st	AH,@0xfff8
+ 1327 0273 00 09 F9 91 		ld	AL,@(-2,Y)
+ 1328 0275 F9 25       		smult	@0xfff9
+ 1329 0276 F8 21       		st	AL,@(-2,Y)
+ 1330 0277 F8 39       	.LVL33:
+ 1331 0278 F8 29       		ld	AL,@0xfff8
+ 1332 0279 1C 17       		smult	@0xfffa
+ 1333 027a 1B 13       		ld	X,@$XAP_AL
+ 1334 027b F9 55       		add	X,@(-2,Y)
+ 1335 027c F8 61       		ld	AL,@0xfffa
+ 1336 027d 0F A4       		umult	@0xfff9
+ 1337 027e 09 27       		st	AH,@0xfff8
+ 1338 027f 08 23       		add	X,@0xfff8
+ 1339 0280 00 00 00 15 		ld	AH,@$XAP_UXL
+ 1340 0282 F8 25       		asr	#0x000a
+ 1341 0283 FE 17       		st	AL,@0xfff9
+ 1342 0284 F8 91       		st	AH,@0xfff8
+ 1343 0285 00 00 00 19 		ld	AL,@(-1,Y)
+ 1344 0287 FA 15       		smult	@0xfff9
+ 1345 0288 00 09 F8 91 		st	AL,@0xfffa
+ 1346 028a F8 21       	.LVL34:
+ 1347 028b F8 39       		ld	AL,@0xfff8
+ 1348 028c 00 00 00 11 		smult	@0xfffb
+ 1349 028e 0B A4       		ld	X,@$XAP_AL
+ 1350 028f F8 21       		add	X,@0xfffa
+ 1351 0290 F8 11       		ld	AL,@0xfffb
+ 1352 0291 80 00 00 34 		umult	@0xfff9
+ 1353 0293 00 40       		st	AH,@0xfff8
+ 1354 0294 FF 23       		add	X,@0xfff8
+ 1355 0295 FB 25       		ld	AH,@$XAP_UXL
+ 1356 0296 00 00 00 11 		asr	#0x000a
+ 1357 0298 10 A4       		st	AH,@0xfff8
+ 1358 0299 F9 25       		ld	AH,@0xfff8
+ 1359 029a F8 21       		add	AL,#0x0000
+ 1360 029b FE 17       		addc	AH,#0x0020
+ 1361 029c F9 91       		st	AH,@0xfffa
+ 1362 029d FE 27       		st	AL,@0xfffb
+ 1363                 		ld	AH,@dig_H2
+ 1364 029e F8 15       		asr	#0x0010
+ 1365 029f FA 91       		st	AL,@0xfff9
+ 1366 02a0 00 00 00 19 		st	AH,@0xfff8
+ 1367 02a2 FE 3B       		ld	AL,@0xfffa
+ 1368 02a3 FA 15       		smult	@0xfff9
+ 1369 02a4 00 09 F9 91 		st	AL,@0xfffa
+ 1370 02a6 F8 21       		ld	AL,@0xfff8
+ 1371 02a7 F8 39       		smult	@0xfffb
+ 1372 02a8 00 00 00 11 		ld	X,@$XAP_AL
+ 1373 02aa 0A A4       		add	X,@0xfffa
+ 1374 02ab F9 25       		ld	AL,@0xfffb
+ 1375 02ac F8 21       		umult	@0xfff9
+ 1376 02ad FF 17       		st	AH,@0xfff8
+ 1377 02ae F9 91       		add	X,@0xfff8
+ 1378 02af FA 25       		ld	AH,@$XAP_UXL
+ 1379                 		add	AL,#0x2000
+ 1380 02b0 F8 15       		addc	AH,#0x0000
+ 1381 02b1 FB 91       		st	AL,@(0x0020,Y)
+ 1382 02b2 00 00 00 19 		st	AH,@(0x001f,Y)
+ 1383 02b4 FA 39       		ld	AL,@(0x0020,Y)
+ 1384 02b5 FB 15       		ld	AH,@(0x001f,Y)
+ 1385 02b6 00 09 F9 91 		asr	#0x000e
+ 1386 02b8 F8 21       		st	AL,@0xfff9
+ 1387 02b9 F8 39       		st	AH,@0xfff8
+ 1388 02ba 00 00 00 11 		ld	AL,@(0x0009,Y)
+ 1389 02bc 0A A4       		smult	@0xfff8
+ 1390 02bd F8 21       		st	AL,@0xfffa
+ 1391 02be F8 11       		ld	AL,@(0x0008,Y)
+ 1392 02bf 00 34       		smult	@0xfff9
+ 1393 02c0 20 40       		ld	X,@$XAP_AL
+ 1394 02c1 FA 21       		add	X,@0xfffa
+ 1395 02c2 FB 25       		ld	AL,@(0x0009,Y)
+ 1396 02c3 00 00 00 11 		umult	@0xfff9
+ 1397 02c5 10 A4       		st	AL,@(-2,Y)
+ 1398 02c6 F9 25       	.LVL35:
+ 1399 02c7 F8 21       		st	AH,@(-1,Y)
+ 1400 02c8 FA 15       	.LVL36:
+ 1401 02c9 F9 91       		add	X,@(-1,Y)
+ 1402 02ca FA 25       		st	X,@(-1,Y)
+ 1403 02cb F8 15       	.LVL37:
+ 1404 02cc FB 91       		.loc 1 198 0
+ 1405 02cd 00 00 00 19 		ld	AH,@$XAP_UXL
+ 1406 02cf FA 39       	.LVL38:
+ 1407 02d0 FB 15       		asr	#0x000f
+ 1408 02d1 00 09 F9 91 		st	AL,@0xfff9
+ 1409 02d3 F8 21       		st	AH,@0xfff8
+ 1410 02d4 F8 39       		ld	AL,@0xfff8
+ 1411 02d5 00 00 00 11 		smult	@0xfff9
+ 1412 02d7 20 00 00 34 		ld	X,@$XAP_AL
+ 1413 02d9 00 40       	.LVL39:
+ 1414 02da 20 27       		add	X,@$XAP_AL
+ 1415 02db 1F 23       		ld	AL,@0xfff9
+ 1416 02dc 20 17       		umult	@0xfff9
+ 1417 02dd 1F 13       		st	AH,@0xfffa
+ 1418 02de 0E A4       		add	X,@0xfffa
+ 1419 02df F9 25       		ld	AH,@$XAP_UXL
+ 1420 02e0 F8 21       		asr	#0x0007
+ 1421 02e1 09 17       		st	AL,@0xfffb
+ 1422 02e2 F8 91       		st	AH,@0xfffa
+ 1423 02e3 FA 25       		ld	AL,@dig_H1
+ 1424 02e4 08 17       		st	AL,@0xfff8
+ 1425 02e5 F9 91       		ld	AL,@0xfffa
+ 1426 02e6 00 00 00 19 		smult	@0xfff8
+ 1427 02e8 FA 39       		ld	X,@$XAP_AL
+ 1428 02e9 09 17       		ld	AL,@0xfffb
+ 1429 02ea 00 09 F9 91 		umult	@0xfff8
+ 1430 02ec FE 27       		st	AH,@0xfff8
+ 1431                 		add	X,@0xfff8
+ 1432 02ed FF 23       		ld	AH,@$XAP_UXL
+ 1433                 		asr	#0x0004
+ 1434 02ee FF 3B       		st	AL,@0xfff9
+ 1435 02ef FF 2B       		st	AH,@0xfff8
+ 1436                 		ld	AL,@(-2,Y)
+ 194:sensor_bme280.c ****                 ((int32)16384) )>>15) * (((((((v_x1_u32r*((int32)dig_H6))>>10)*(((v_x1_u32r*((int32
+ 195:sensor_bme280.c ****                 (int32)2097152)*((int32)dig_H2)+8192)>>14);
+ 196:sensor_bme280.c ****                 
+ 197:sensor_bme280.c ****     v_x1_u32r = (v_x1_u32r-(((((v_x1_u32r>>15)*(v_x1_u32r>>15))>>7)*((int32)dig_H1))>>4));
+ 1437                 	)
+ 1438 02f0 00 00 00 11 		bmi	.L30
+ 1439                 	.LVL43:
+ 1440 02f2 0F A4       		bra	.L29
+ 1441 02f3 F9 25       	.L30:
+ 1442 02f4 F8 21       		ld	AL,#0x0000
+ 1443 02f5 F8 15       		st	AL,@0xfff8
+ 1444 02f6 F9 91       	.LVL44:
+ 1445 02f7 00 00 00 19 		ld	X,#0x0000
+ 1446                 	.LVL45:
+ 1447 02f9 00 00 00 39 	.L29:
+ 1448 02fb F9 15       		.loc 1 202 0
+ 1449 02fc 00 09 F9 91 		ld	AH,@0xfff8
+ 1450 02fe FA 21       		st	X,@0xfff9
+ 1451 02ff FA 39       		st	AH,@0xfff8
+ 1452 0300 00 00 00 11 	.LVL46:
+ 1453 0302 07 A4       		cmp	AH,#0x1900
+ 1454 0303 FB 25       		bgt	.L32
+ 1455 0304 FA 21       		cmp	AH,#0x1900
+ 1456 0305 00 00 00 15 		bne	.L31
+ 1457 0307 F8 25       		tst	@$XAP_UXL
+ 1458 0308 FA 15       		beq	.L31
+ 1459 0309 F8 91       	.L32:
+ 1460 030a 00 00 00 19 		ld	X,#0x1900
+ 1461 030c FB 15       	.LVL47:
+ 1462 030d 00 09 F8 91 		st	X,@0xfff8
+ 1463 030f F8 21       		ld	AH,#0x0000
+ 1464 0310 F8 39       		st	AH,@0xfff9
+ 1465 0311 00 00 00 11 	.LVL48:
+ 1466 0313 04 A4       	.L31:
+ 1467 0314 F9 25       		ld	AL,@0xfff9
+ 1468 0315 F8 21       	.LVL49:
+ 1469 0316 FE 17       		ld	AH,@0xfff8
+ 1470 0317 FF 13       		asr	#0x000c
+ 1471                 		ld	X,@(0x0026,Y)
+ 1472 0318 F9 55       		st	AL,@(0x0001,X)
+ 1473 0319 F8 61       		st	AH,@(0,X)
+ 1474 031a FF 23       		.loc 1 203 0
+ 1475                 		ld	AL,#.LC29
+ 198:sensor_bme280.c **** 	v_x1_u32r = (v_x1_u32r < 0 ? 0 : v_x1_u32r);
+ 1476                 	04 0
+ 1477 031b F8 21       		ld	X,@(0x0026,Y)
+ 1478                 		ld	AL,@(0x0001,X)
+ 1479 031c 00 00 00 19 		ld	AH,@(0,X)
+ 1480 031e FF 9B       		bsr	DebugWriteUint32
+ 1481 031f 00 00 00 00 		ld	AL,#.LC0
+ 1481      00 EC 
+ 1482                 		bsr	DebugWriteString
+ 1483 0322 00 00 00 00 		.loc 1 205 0
+ 1483      00 E0 
+ 1484                 		ld	X,@(0x0026,Y)
+ 1485 0325 00 14       		ld	X,@(0x0001,X)
+ 1486 0326 F8 25       		st	X,@(0x0022,Y)
+ 1487                 		ld	X,@(0x0026,Y)
+ 1488 0327 00 18       		ld	X,@(0,X)
+ 1489                 		st	X,@(0x0021,Y)
+ 1490                 		ld	AL,@(0x0022,Y)
+ 199:sensor_bme280.c **** 	v_x1_u32r = (v_x1_u32r > 419430400 ? 419430400 : v_x1_u32r);
+ 200:sensor_bme280.c ****     
+ 201:sensor_bme280.c ****     *h=(uint32)(v_x1_u32r>>12);
+ 1491                 	,Y)
+ 1492 0328 F8 11       		lsr	#0x000a
+ 1493 0329 F9 29       		st	AH,@0xfff8
+ 1494 032a F8 21       		ld	AH,@0xfff8
+ 1495                 		bsr	printInDecimal
+ 1496 032b 19 00 00 80 		ld	AL,#.LC25
+ 1497 032d 00 00 00 00 		bsr	DebugWriteString
+ 1497      00 20 
+ 1498 0330 19 00 00 80 		.loc 1 206 0
+ 1499 0332 00 00 00 00 		ld	X,@(0x0026,Y)
+ 1499      00 F0 
+ 1500 0335 00 00 00 99 		ld	AL,@(0x0001,X)
+ 1501 0337 00 00 00 00 		and	AL,#0x03ff
+ 1501      00 F4 
+ 1502                 		umult	#0x03e8
+ 1503 033a 19 00 00 18 		lsr	#0x000a
+ 1504                 		st	AH,@0xfff8
+ 1505 033c F8 29       		ld	AH,@0xfff8
+ 1506 033d 00 10       		bsr	printInDecimal
+ 1507 033e F9 21       		ld	AL,#.LC30
+ 1508                 		bsr	DebugWriteString
+ 1509                 		ld	AL,#0x0001
+ 1510 033f F9 15       	.L25:
+ 1511                 		.loc 1 208 0
+ 1512 0340 F8 11       		leave	#0x0026
+ 1513 0341 0C A4       	.LFE7:
+ 1514 0342 26 1B       		.size	BME280_compensation_int32, .-BME280_compensation_int32
+ 1515 0343 01 26       		.global	__size_of_BME280_compensation_int32
+ 1516 0344 00 22       		.equ	__size_of_BME280_compensation_int32,. - BME280_compensation_int32
+ 202:sensor_bme280.c ****     DebugWriteString("Maintain final humidity data:   ");
+ 1517                 	m dig_P1, 1, 1
+ 1518 0345 00 00 00 14 	
+ 1519 0347 00 00 00 00 		.comm dig_T2, 1, 1
+ 1519      00 9C 
+ 1520                 	
+ 203:sensor_bme280.c ****     DebugWriteUint32(*h);DebugWriteString(" ");
+ 1521                 	mm dig_T3, 1, 1
+ 1522 034a 26 1B       	
+ 1523 034b 01 16       		.comm dig_P2, 1, 1
+ 1524 034c 00 12       	
+ 1525 034d 00 00 00 00 		.comm dig_P3, 1, 1
+ 1525      00 9C 
+ 1526 0350 00 00 00 14 	
+ 1527 0352 00 00 00 00 		.comm dig_P4, 1, 1
+ 1527      00 9C 
+ 204:sensor_bme280.c ****     printInDecimal(*h/1024);DebugWriteString(".");
+ 1528                 	 dig_P5, 1, 1
+ 1529 0355 26 1B       	
+ 1530 0356 01 1A       		.comm dig_P6, 1, 1
+ 1531 0357 22 2B       	
+ 1532 0358 26 1B       		.comm dig_P7, 1, 1
+ 1533 0359 00 1A       	
+ 1534 035a 21 2B       		.comm dig_P8, 1, 1
+ 1535 035b 22 17       	
+ 1536 035c 21 13       		.comm dig_P9, 1, 1
+ 1537 035d 00 09 0A A4 	
+ 1538 035f F8 21       		.comm dig_H1, 1, 1
+ 1539 0360 F8 11       	
+ 1540 0361 00 00 00 00 		.comm dig_H3, 1, 1
+ 1540      00 9C 
+ 1541 0364 00 00 00 14 	
+ 1542 0366 00 00 00 00 		.comm dig_H6, 1, 1
+ 1542      00 9C 
+ 205:sensor_bme280.c ****     printInDecimal((*h%1024)*1000/1024);DebugWriteString("%\r\n");
+ 1543                 	 1, 1
+ 1544 0369 26 1B       	
+ 1545 036a 01 16       		.comm dig_H4, 1, 1
+ 1546 036b 04 00 FF C4 	
+ 1547 036d 00 09 04 00 		.comm dig_H5, 1, 1
+ 1547      E8 90 
+ 1548 0370 00 09 0A A4 	
+ 1549 0372 F8 21       		.comm ut, 2, 1
+ 1550 0373 F8 11       	
+ 1551 0374 00 00 00 00 		.comm up, 2, 1
+ 1551      00 9C 
+ 1552 0377 00 00 00 14 	
+ 1553 0379 00 00 00 00 		.comm uh, 2, 1
+ 1553      00 9C 
+ 1554 037c 01 14       	
+ 1555                 		.section	.debug_frame,"",@progbits
+ 206:sensor_bme280.c ****     return 1;
+ 207:sensor_bme280.c **** }
+ 1556                 	byte	.LECIE0-.LSCIE0
+ 1557 037d 26 0F       	.LSCIE0:
+ 1558                 		.4byte	0xffffffff
+ 1559                 		.1byte	0x1
+ 1560                 		.ascii "\000"
+ 1561                 		.1byte	0x1
+ 1562                 		.1byte	0x7f
+ 1563                 		.1byte	0x3
+ 1564                 		.1byte	0xc
+ 1565                 		.1byte	0x5
+ 1566                 		.1byte	0x0
+ 1567                 		.p2align	2
+ 1568                 	.LECIE0:
+ 1569                 	.LSFDE0:
+ 1570                 		.4byte	.LEFDE0-.LASFDE0
+ 1571                 	.LASFDE0:
+ 1572                 		.4byte	.Lframe0
+ 1573                 		.4byte	.LFB4
+ 1574                 		.4byte	.LFE4-.LFB4
+ 1575                 		.1byte	0x4
+ 1576                 		.4byte	.LCFI0-.LFB4
+ 1577                 		.1byte	0xe
+ 1578                 		.1byte	0x3
+ 1579                 		.1byte	0x83
+ 1580                 		.1byte	0x1
+ 1581                 		.p2align	2
+ 1582                 	.LEFDE0:
+ 1583                 	.LSFDE2:
+ 1584                 		.4byte	.LEFDE2-.LASFDE2
+ 1585                 	.LASFDE2:
+ 1586                 		.4byte	.Lframe0
+ 1587                 		.4byte	.LFB2
+ 1588                 		.4byte	.LFE2-.LFB2
+ 1589                 		.1byte	0x4
+ 1590                 		.4byte	.LCFI1-.LFB2
+ 1591                 		.1byte	0xe
+ 1592                 		.1byte	0x5
+ 1593                 		.1byte	0x83
+ 1594                 		.1byte	0x1
+ 1595                 		.p2align	2
+ 1596                 	.LEFDE2:
+ 1597                 	.LSFDE4:
+ 1598                 		.4byte	.LEFDE4-.LASFDE4
+ 1599                 	.LASFDE4:
+ 1600                 		.4byte	.Lframe0
+ 1601                 		.4byte	.LFB6
+ 1602                 		.4byte	.LFE6-.LFB6
+ 1603                 		.1byte	0x4
+ 1604                 		.4byte	.LCFI2-.LFB6
+ 1605                 		.1byte	0xe
+ 1606 0000 00 00 00 00 		.1byte	0x10
+ 1607                 		.1byte	0x83
+ 1608 0002 FF FF FF FF 		.1byte	0x1
+ 1609 0004 01          		.p2align	2
+ 1610 0004 00          	.LEFDE4:
+ 1611 0005 01          	.LSFDE6:
+ 1612 0005 7F          		.4byte	.LEFDE6-.LASFDE6
+ 1613 0006 03          	.LASFDE6:
+ 1614 0006 0C          		.4byte	.Lframe0
+ 1615 0007 05          		.4byte	.LFB5
+ 1616 0007 00          		.4byte	.LFE5-.LFB5
+ 1617                 		.1byte	0x4
+ 1618                 		.4byte	.LCFI3-.LFB5
+ 1619                 		.1byte	0xe
+ 1620 0008 00 00 00 00 		.1byte	0x24
+ 1621                 		.1byte	0x83
+ 1622 000a 00 00 00 00 		.1byte	0x1
+ 1623 000c 00 00 00 00 		.p2align	2
+ 1624 000e 00 00 00 00 	.LEFDE6:
+ 1625 0010 41          	.LSFDE8:
+ 1626                 		.4byte	.LEFDE8-.LASFDE8
+ 1627 0010 0E          	.LASFDE8:
+ 1628 0011 03          		.4byte	.Lframe0
+ 1629 0011 83          		.4byte	.LFB3
+ 1630 0012 01          		.4byte	.LFE3-.LFB3
+ 1631 0012 00 00 00    		.1byte	0x4
+ 1632                 		.4byte	.LCFI4-.LFB3
+ 1633                 		.1byte	0xe
+ 1634 0014 00 00 00 00 		.1byte	0x5
+ 1635                 		.1byte	0x83
+ 1636 0016 00 00 00 00 		.1byte	0x1
+ 1637 0018 00 00 00 00 		.p2align	2
+ 1638 001a 00 00 00 00 	.LEFDE8:
+ 1639 001c 41          	.LSFDE10:
+ 1640                 		.4byte	.LEFDE10-.LASFDE10
+ 1641 001c 0E          	.LASFDE10:
+ 1642 001d 05          		.4byte	.Lframe0
+ 1643 001d 83          		.4byte	.LFB7
+ 1644 001e 01          		.4byte	.LFE7-.LFB7
+ 1645 001e 00 00 00    		.1byte	0x4
+ 1646                 		.4byte	.LCFI5-.LFB7
+ 1647                 		.1byte	0xe
+ 1648 0020 00 00 00 00 		.1byte	0x26
+ 1649                 		.1byte	0x83
+ 1650 0022 00 00 00 00 		.1byte	0x1
+ 1651 0024 00 00 00 00 		.p2align	2
+ 1652 0026 00 00 00 00 	.LEFDE10:
+ 1653 0028 41          		.text
+ 1654                 	.Letext0:
+ 1655 0028 0E          		.section	.debug_loc,"",@progbits
+ 1656 0029 10          	.Ldebug_loc0:
+ 1657 0029 83          	.LLST0:
+ 1658 002a 01          		.4byte	.LFB4
+ 1659 002a 00 00 00    		.4byte	.LCFI0
+ 1660                 		.2byte	0x1
+ 1661                 		.1byte	0x55
+ 1662 002c 00 00 00 00 		.4byte	.LCFI0
+ 1663                 		.4byte	.LFE4
+ 1664 002e 00 00 00 00 		.2byte	0x2
+ 1665 0030 00 00 00 00 		.1byte	0x75
+ 1666 0032 00 00 00 00 		.1byte	0x3
+ 1667 0034 41          		.4byte	0x0
+ 1668                 		.4byte	0x0
+ 1669 0034 0E          	.LLST1:
+ 1670 0035 24          		.4byte	.LFB2
+ 1671 0035 83          		.4byte	.LCFI1
+ 1672 0036 01          		.2byte	0x1
+ 1673 0036 00 00 00    		.1byte	0x55
+ 1674                 		.4byte	.LCFI1
+ 1675                 		.4byte	.LFE2
+ 1676 0038 00 00 00 00 		.2byte	0x2
+ 1677                 		.1byte	0x75
+ 1678 003a 00 00 00 00 		.1byte	0x5
+ 1679 003c 00 00 00 00 		.4byte	0x0
+ 1680 003e 00 00 00 00 		.4byte	0x0
+ 1681 0040 41          	.LLST2:
+ 1682                 		.4byte	.LVL0
+ 1683 0040 0E          		.4byte	.LVL2
+ 1684 0041 05          		.2byte	0x6
+ 1685 0041 83          		.1byte	0x50
+ 1686 0042 01          		.1byte	0x93
+ 1687 0042 00 00 00    		.1byte	0x2
+ 1688                 		.1byte	0x51
+ 1689                 		.1byte	0x93
+ 1690 0044 00 00 00 00 		.1byte	0x2
+ 1691                 		.4byte	.LVL3
+ 1692 0046 00 00 00 00 		.4byte	.LFE2
+ 1693 0048 00 00 00 00 		.2byte	0x2
+ 1694 004a 00 00 00 00 		.1byte	0x76
+ 1695 004c 41          		.1byte	0x2
+ 1696                 		.4byte	0x0
+ 1697 004c 0E          		.4byte	0x0
+ 1698 004d 26          	.LLST3:
+ 1699 004d 83          		.4byte	.LFB6
+ 1700 004e 01          		.4byte	.LCFI2
+ 1701 004e 00 00 00    		.2byte	0x1
+ 1702                 		.1byte	0x55
+ 1703                 		.4byte	.LCFI2
+ 1704                 		.4byte	.LFE6
+ 1705                 		.2byte	0x2
+ 1706                 		.1byte	0x75
+ 1707                 		.1byte	0x10
+ 1708 0000 00 00 00 00 		.4byte	0x0
+ 1709 0002 00 00 00 00 		.4byte	0x0
+ 1710 0004 00 01       	.LLST4:
+ 1711 0005 55          		.4byte	.LFB5
+ 1712 0005 00 00 00 00 		.4byte	.LCFI3
+ 1713 0007 00 00 00 00 		.2byte	0x1
+ 1714 0009 00 02       		.1byte	0x55
+ 1715 000a 75          		.4byte	.LCFI3
+ 1716 000b 03          		.4byte	.LFE5
+ 1717 000b 00 00 00 00 		.2byte	0x2
+ 1718 000d 00 00 00 00 		.1byte	0x75
+ 1719                 		.1byte	0x24
+ 1720 000f 00 00 00 00 		.4byte	0x0
+ 1721 0011 00 00 00 00 		.4byte	0x0
+ 1722 0013 00 01       	.LLST5:
+ 1723 0014 55          		.4byte	.LVL5
+ 1724 0015 00 00 00 00 		.4byte	.LVL6
+ 1725 0017 00 00 00 00 		.2byte	0x1
+ 1726 0019 00 02       		.1byte	0x51
+ 1727 001a 75          		.4byte	.LVL7
+ 1728 001a 05          		.4byte	.LVL8
+ 1729 001b 00 00 00 00 		.2byte	0x1
+ 1730 001d 00 00 00 00 		.1byte	0x51
+ 1731                 		.4byte	0x0
+ 1732 001f 00 00 00 00 		.4byte	0x0
+ 1733 0021 00 00 00 00 	.LLST6:
+ 1734 0023 00 06       		.4byte	.LFB3
+ 1735 0024 50          		.4byte	.LCFI4
+ 1736 0024 93          		.2byte	0x1
+ 1737 0025 02          		.1byte	0x55
+ 1738 0025 51          		.4byte	.LCFI4
+ 1739 0026 93          		.4byte	.LFE3
+ 1740 0026 02          		.2byte	0x2
+ 1741 0027 00 00 00 00 		.1byte	0x75
+ 1742 0029 00 00 00 00 		.1byte	0x5
+ 1743 002b 00 02       		.4byte	0x0
+ 1744 002c 76          		.4byte	0x0
+ 1745 002c 02          	.LLST7:
+ 1746 002d 00 00 00 00 		.4byte	.LVL9
+ 1747 002f 00 00 00 00 		.4byte	.LVL11
+ 1748                 		.2byte	0x6
+ 1749 0031 00 00 00 00 		.1byte	0x50
+ 1750 0033 00 00 00 00 		.1byte	0x93
+ 1751 0035 00 01       		.1byte	0x2
+ 1752 0036 55          		.1byte	0x51
+ 1753 0036 00 00 00 00 		.1byte	0x93
+ 1754 0038 00 00 00 00 		.1byte	0x2
+ 1755 003a 00 02       		.4byte	0x0
+ 1756 003b 75          		.4byte	0x0
+ 1757 003c 10          	.LLST8:
+ 1758 003c 00 00 00 00 		.4byte	.LFB7
+ 1759 003e 00 00 00 00 		.4byte	.LCFI5
+ 1760                 		.2byte	0x1
+ 1761 0040 00 00 00 00 		.1byte	0x55
+ 1762 0042 00 00 00 00 		.4byte	.LCFI5
+ 1763 0044 00 01       		.4byte	.LFE7
+ 1764 0045 55          		.2byte	0x2
+ 1765 0046 00 00 00 00 		.1byte	0x75
+ 1766 0048 00 00 00 00 		.1byte	0x26
+ 1767 004a 00 02       		.4byte	0x0
+ 1768 004b 75          		.4byte	0x0
+ 1769 004b 24          	.LLST9:
+ 1770 004c 00 00 00 00 		.4byte	.LVL15
+ 1771 004e 00 00 00 00 		.4byte	.LVL16
+ 1772                 		.2byte	0x1
+ 1773 0050 00 00 00 00 		.1byte	0x51
+ 1774 0052 00 00 00 00 		.4byte	.LVL16
+ 1775 0054 00 01       		.4byte	.LFE7
+ 1776 0055 51          		.2byte	0x2
+ 1777 0055 00 00 00 00 		.1byte	0x76
+ 1778 0057 00 00 00 00 		.1byte	0x15
+ 1779 0059 00 01       		.4byte	0x0
+ 1780 005a 51          		.4byte	0x0
+ 1781 005b 00 00 00 00 	.LLST10:
+ 1782 005d 00 00 00 00 		.4byte	.LVL15
+ 1783                 		.4byte	.LVL16
+ 1784 005f 00 00 00 00 		.2byte	0x1
+ 1785 0061 00 00 00 00 		.1byte	0x50
+ 1786 0063 00 01       		.4byte	.LVL16
+ 1787 0064 55          		.4byte	.LFE7
+ 1788 0064 00 00 00 00 		.2byte	0x2
+ 1789 0066 00 00 00 00 		.1byte	0x76
+ 1790 0068 00 02       		.1byte	0x16
+ 1791 0069 75          		.4byte	0x0
+ 1792 006a 05          		.4byte	0x0
+ 1793 006a 00 00 00 00 	.LLST11:
+ 1794 006c 00 00 00 00 		.4byte	.LVL20
+ 1795                 		.4byte	.LVL21
+ 1796 006e 00 00 00 00 		.2byte	0x2
+ 1797 0070 00 00 00 00 		.1byte	0x76
+ 1798 0072 00 06       		.1byte	0x4
+ 1799 0073 50          		.4byte	.LVL21
+ 1800 0074 93          		.4byte	.LVL22
+ 1801 0074 02          		.2byte	0x8
+ 1802 0075 51          		.1byte	0x76
+ 1803 0075 93          		.1byte	0x4
+ 1804 0076 02          		.1byte	0x93
+ 1805 0076 00 00 00 00 		.1byte	0x2
+ 1806 0078 00 00 00 00 		.1byte	0x76
+ 1807                 		.1byte	0x3
+ 1808 007a 00 00 00 00 		.1byte	0x93
+ 1809 007c 00 00 00 00 		.1byte	0x2
+ 1810 007e 00 01       		.4byte	.LVL22
+ 1811 007f 55          		.4byte	.LVL29
+ 1812 0080 00 00 00 00 		.2byte	0x2
+ 1813 0082 00 00 00 00 		.1byte	0x76
+ 1814 0084 00 02       		.1byte	0x2
+ 1815 0085 75          		.4byte	.LVL29
+ 1816 0085 26          		.4byte	.LVL30
+ 1817 0086 00 00 00 00 		.2byte	0x2
+ 1818 0088 00 00 00 00 		.1byte	0x76
+ 1819                 		.1byte	0x4
+ 1820 008a 00 00 00 00 		.4byte	.LVL30
+ 1821 008c 00 00 00 00 		.4byte	.LFE7
+ 1822 008e 00 01       		.2byte	0x2
+ 1823 008f 51          		.1byte	0x76
+ 1824 008f 00 00 00 00 		.1byte	0x2
+ 1825 0091 00 00 00 00 		.4byte	0x0
+ 1826 0093 00 02       		.4byte	0x0
+ 1827 0094 76          	.LLST12:
+ 1828 0095 15          		.4byte	.LVL24
+ 1829 0095 00 00 00 00 		.4byte	.LVL25
+ 1830 0097 00 00 00 00 		.2byte	0x6
+ 1831                 		.1byte	0x59
+ 1832 0099 00 00 00 00 		.1byte	0x93
+ 1833 009b 00 00 00 00 		.1byte	0x2
+ 1834 009d 00 01       		.1byte	0x5a
+ 1835 009e 50          		.1byte	0x93
+ 1836 009f 00 00 00 00 		.1byte	0x2
+ 1837 00a1 00 00 00 00 		.4byte	.LVL26
+ 1838 00a3 00 02       		.4byte	.LVL27
+ 1839 00a4 76          		.2byte	0x6
+ 1840 00a4 16          		.1byte	0x59
+ 1841 00a5 00 00 00 00 		.1byte	0x93
+ 1842 00a7 00 00 00 00 		.1byte	0x2
+ 1843                 		.1byte	0x5a
+ 1844 00a9 00 00 00 00 		.1byte	0x93
+ 1845 00ab 00 00 00 00 		.1byte	0x2
+ 1846 00ad 00 02       		.4byte	0x0
+ 1847 00ae 76          		.4byte	0x0
+ 1848 00ae 04          	.LLST13:
+ 1849 00af 00 00 00 00 		.4byte	.LVL32
+ 1850 00b1 00 00 00 00 		.4byte	.LVL33
+ 1851 00b3 00 08       		.2byte	0x6
+ 1852 00b4 76          		.1byte	0x5c
+ 1853 00b4 04          		.1byte	0x93
+ 1854 00b5 93          		.1byte	0x2
+ 1855 00b5 02          		.1byte	0x59
+ 1856 00b6 76          		.1byte	0x93
+ 1857 00b6 03          		.1byte	0x2
+ 1858 00b7 93          		.4byte	.LVL36
+ 1859 00b7 02          		.4byte	.LVL37
+ 1860 00b8 00 00 00 00 		.2byte	0x6
+ 1861 00ba 00 00 00 00 		.1byte	0x5b
+ 1862 00bc 00 02       		.1byte	0x93
+ 1863 00bd 76          		.1byte	0x2
+ 1864 00bd 02          		.1byte	0x5c
+ 1865 00be 00 00 00 00 		.1byte	0x93
+ 1866 00c0 00 00 00 00 		.1byte	0x2
+ 1867 00c2 00 02       		.4byte	.LVL38
+ 1868 00c3 76          		.4byte	.LVL39
+ 1869 00c3 04          		.2byte	0x6
+ 1870 00c4 00 00 00 00 		.1byte	0x53
+ 1871 00c6 00 00 00 00 		.1byte	0x93
+ 1872 00c8 00 02       		.1byte	0x2
+ 1873 00c9 76          		.1byte	0x5c
+ 1874 00c9 02          		.1byte	0x93
+ 1875 00ca 00 00 00 00 		.1byte	0x2
+ 1876 00cc 00 00 00 00 		.4byte	.LVL40
+ 1877                 		.4byte	.LVL42
+ 1878 00ce 00 00 00 00 		.2byte	0x6
+ 1879 00d0 00 00 00 00 		.1byte	0x5b
+ 1880 00d2 00 06       		.1byte	0x93
+ 1881 00d3 59          		.1byte	0x2
+ 1882 00d3 93          		.1byte	0x5c
+ 1883 00d4 02          		.1byte	0x93
+ 1884 00d4 5A          		.1byte	0x2
+ 1885 00d5 93          		.4byte	.LVL42
+ 1886 00d5 02          		.4byte	.LVL43
+ 1887 00d6 00 00 00 00 		.2byte	0x6
+ 1888 00d8 00 00 00 00 		.1byte	0x57
+ 1889 00da 00 06       		.1byte	0x93
+ 1890 00db 59          		.1byte	0x2
+ 1891 00db 93          		.1byte	0x5c
+ 1892 00dc 02          		.1byte	0x93
+ 1893 00dc 5A          		.1byte	0x2
+ 1894 00dd 93          		.4byte	.LVL43
+ 1895 00dd 02          		.4byte	.LVL44
+ 1896 00de 00 00 00 00 		.2byte	0x6
+ 1897 00e0 00 00 00 00 		.1byte	0x5b
+ 1898                 		.1byte	0x93
+ 1899 00e2 00 00 00 00 		.1byte	0x2
+ 1900 00e4 00 00 00 00 		.1byte	0x53
+ 1901 00e6 00 06       		.1byte	0x93
+ 1902 00e7 5C          		.1byte	0x2
+ 1903 00e7 93          		.4byte	.LVL44
+ 1904 00e8 02          		.4byte	.LVL46
+ 1905 00e8 59          		.2byte	0x6
+ 1906 00e9 93          		.1byte	0x57
+ 1907 00e9 02          		.1byte	0x93
+ 1908 00ea 00 00 00 00 		.1byte	0x2
+ 1909 00ec 00 00 00 00 		.1byte	0x53
+ 1910 00ee 00 06       		.1byte	0x93
+ 1911 00ef 5B          		.1byte	0x2
+ 1912 00ef 93          		.4byte	.LVL46
+ 1913 00f0 02          		.4byte	.LVL47
+ 1914 00f0 5C          		.2byte	0x6
+ 1915 00f1 93          		.1byte	0x58
+ 1916 00f1 02          		.1byte	0x93
+ 1917 00f2 00 00 00 00 		.1byte	0x2
+ 1918 00f4 00 00 00 00 		.1byte	0x53
+ 1919 00f6 00 06       		.1byte	0x93
+ 1920 00f7 53          		.1byte	0x2
+ 1921 00f7 93          		.4byte	.LVL47
+ 1922 00f8 02          		.4byte	.LVL49
+ 1923 00f8 5C          		.2byte	0x6
+ 1924 00f9 93          		.1byte	0x58
+ 1925 00f9 02          		.1byte	0x93
+ 1926 00fa 00 00 00 00 		.1byte	0x2
+ 1927 00fc 00 00 00 00 		.1byte	0x51
+ 1928 00fe 00 06       		.1byte	0x93
+ 1929 00ff 5B          		.1byte	0x2
+ 1930 00ff 93          		.4byte	.LVL49
+ 1931 0100 02          		.4byte	.LVL50
+ 1932 0100 5C          		.2byte	0x6
+ 1933 0101 93          		.1byte	0x58
+ 1934 0101 02          		.1byte	0x93
+ 1935 0102 00 00 00 00 		.1byte	0x2
+ 1936 0104 00 00 00 00 		.1byte	0x5c
+ 1937 0106 00 06       		.1byte	0x93
+ 1938 0107 57          		.1byte	0x2
+ 1939 0107 93          		.4byte	0x0
+ 1940 0108 02          		.4byte	0x0
+ 1941 0108 5C          		.file 2 "C:/CSR_uEnergy_SDK-2.4.5.13/tools/include/CSR101x_A05/types.h"
+ 1942 0109 93          		.file 3 "sensor_bme280.h"
+ 1943 0109 02          		.section	.debug_info
+ 1944 010a 00 00 00 00 		.4byte	0x3a2
+ 1945 010c 00 00 00 00 		.2byte	0x2
+ 1946 010e 00 06       		.4byte	.Ldebug_abbrev0
+ 1947 010f 5B          		.1byte	0x4
+ 1948 010f 93          		.1byte	0x1
+ 1949 0110 02          		.4byte	.LASF43
+ 1950 0110 53          		.1byte	0x1
+ 1951 0111 93          		.4byte	.LASF44
+ 1952 0111 02          		.4byte	.LASF45
+ 1953 0112 00 00 00 00 		.4byte	0x0
+ 1954 0114 00 00 00 00 		.4byte	0x0
+ 1955 0116 00 06       		.4byte	.Ldebug_ranges0+0x0
+ 1956 0117 57          		.4byte	.Ldebug_line0
+ 1957 0117 93          		.1byte	0x2
+ 1958 0118 02          		.4byte	.LASF0
+ 1959 0118 53          		.1byte	0x2
+ 1960 0119 93          		.1byte	0x1e
+ 1961 0119 02          		.4byte	0x34
+ 1962 011a 00 00 00 00 		.1byte	0x3
+ 1963 011c 00 00 00 00 		.1byte	0x2
+ 1964 011e 00 06       		.1byte	0x8
+ 1965 011f 58          		.4byte	.LASF2
+ 1966 011f 93          		.1byte	0x2
+ 1967 0120 02          		.4byte	.LASF1
+ 1968 0120 53          		.1byte	0x2
+ 1969 0121 93          		.1byte	0x1f
+ 1970 0121 02          		.4byte	0x46
+ 1971 0122 00 00 00 00 		.1byte	0x3
+ 1972 0124 00 00 00 00 		.1byte	0x2
+ 1973 0126 00 06       		.1byte	0x7
+ 1974 0127 58          		.4byte	.LASF3
+ 1975 0127 93          		.1byte	0x2
+ 1976 0128 02          		.4byte	.LASF4
+ 1977 0128 51          		.1byte	0x2
+ 1978 0129 93          		.1byte	0x20
+ 1979 0129 02          		.4byte	0x58
+ 1980 012a 00 00 00 00 		.1byte	0x3
+ 1981 012c 00 00 00 00 		.1byte	0x4
+ 1982 012e 00 06       		.1byte	0x7
+ 1983 012f 58          		.4byte	.LASF5
+ 1984 012f 93          		.1byte	0x2
+ 1985 0130 02          		.4byte	.LASF6
+ 1986 0130 5C          		.1byte	0x2
+ 1987 0131 93          		.1byte	0x23
+ 1988 0131 02          		.4byte	0x6a
+ 1989 0132 00 00 00 00 		.1byte	0x3
+ 1990 0134 00 00 00 00 		.1byte	0x2
+ 1991                 		.1byte	0x6
+ 1992                 		.4byte	.LASF7
+ 1993                 		.1byte	0x3
+ 1994 0000 00 00 03 A2 		.1byte	0x2
+ 1995 0002 00 02       		.1byte	0x5
+ 1996 0003 00 00 00 00 		.4byte	.LASF8
+ 1997 0005 04          		.1byte	0x2
+ 1998 0005 01          		.4byte	.LASF9
+ 1999 0006 00 00 00 00 		.1byte	0x2
+ 2000 0008 01          		.1byte	0x25
+ 2001 0008 00 00 00 00 		.4byte	0x83
+ 2002 000a 00 00 00 00 		.1byte	0x3
+ 2003 000c 00 00 00 00 		.1byte	0x4
+ 2004 000e 00 00 00 00 		.1byte	0x5
+ 2005 0010 00 00 00 00 		.4byte	.LASF10
+ 2006 0012 00 00 00 00 		.1byte	0x2
+ 2007 0014 02          		.4byte	.LASF11
+ 2008 0015 00 00 00 00 		.1byte	0x2
+ 2009 0017 02          		.1byte	0x2a
+ 2010 0017 1E          		.4byte	0x95
+ 2011 0018 00 00 00 34 		.1byte	0x3
+ 2012 001a 03          		.1byte	0x2
+ 2013 001a 02          		.1byte	0x7
+ 2014 001b 08          		.4byte	.LASF12
+ 2015 001b 00 00 00 00 		.1byte	0x4
+ 2016 001d 02          		.1byte	0x1
+ 2017 001e 00 00 00 00 		.4byte	.LASF13
+ 2018 0020 02          		.1byte	0x1
+ 2019 0020 1F          		.1byte	0x1a
+ 2020 0021 00 00 00 46 		.1byte	0x1
+ 2021 0023 03          		.4byte	.LFB4
+ 2022 0023 02          		.4byte	.LFE4
+ 2023 0024 07          		.4byte	.LLST0
+ 2024 0024 00 00 00 00 		.4byte	0xc1
+ 2025 0026 02          		.1byte	0x5
+ 2026 0027 00 00 00 00 		.4byte	.LASF16
+ 2027 0029 02          		.1byte	0x1
+ 2028 0029 20          		.1byte	0x1b
+ 2029 002a 00 00 00 58 		.4byte	0x8a
+ 2030 002c 03          		.1byte	0x0
+ 2031 002c 04          		.1byte	0x4
+ 2032 002d 07          		.1byte	0x1
+ 2033 002d 00 00 00 00 		.4byte	.LASF14
+ 2034 002f 02          		.1byte	0x1
+ 2035 0030 00 00 00 00 		.1byte	0x7
+ 2036 0032 02          		.1byte	0x1
+ 2037 0032 23          		.4byte	.LFB2
+ 2038 0033 00 00 00 6A 		.4byte	.LFE2
+ 2039 0035 03          		.4byte	.LLST1
+ 2040 0035 02          		.4byte	0xea
+ 2041 0036 06          		.1byte	0x6
+ 2042 0036 00 00 00 00 		.ascii "val\000"
+ 2043 0038 03          		.1byte	0x1
+ 2044 0039 02          		.1byte	0x6
+ 2045 0039 05          		.4byte	0x83
+ 2046 003a 00 00 00 00 		.4byte	.LLST2
+ 2047 003c 02          		.1byte	0x0
+ 2048 003c 00 00 00 00 		.1byte	0x4
+ 2049 003e 02          		.1byte	0x1
+ 2050 003f 25          		.4byte	.LASF15
+ 2051 003f 00 00 00 83 		.1byte	0x1
+ 2052 0041 03          		.1byte	0x7c
+ 2053 0042 04          		.1byte	0x1
+ 2054 0042 05          		.4byte	.LFB6
+ 2055 0043 00 00 00 00 		.4byte	.LFE6
+ 2056 0045 02          		.4byte	.LLST3
+ 2057 0045 00 00 00 00 		.4byte	0x11b
+ 2058 0047 02          		.1byte	0x7
+ 2059 0048 2A          		.ascii "dat\000"
+ 2060 0048 00 00 00 95 		.1byte	0x1
+ 2061 004a 03          		.1byte	0x7d
+ 2062 004b 02          		.4byte	0x11b
+ 2063 004b 07          		.1byte	0x2
+ 2064 004c 00 00 00 00 		.1byte	0x76
+ 2065 004e 04          		.1byte	0x2
+ 2066 004e 01          		.1byte	0x8
+ 2067 004f 00 00 00 00 		.ascii "i\000"
+ 2068 0051 01          		.1byte	0x1
+ 2069 0051 1A          		.1byte	0x7d
+ 2070 0052 01          		.4byte	0x3b
+ 2071 0052 00 00 00 00 		.1byte	0x0
+ 2072 0054 00 00 00 00 		.1byte	0x9
+ 2073 0056 00 00 00 00 		.4byte	0x29
+ 2074 0058 00 00 00 C1 		.4byte	0x12b
+ 2075 005a 05          		.1byte	0xa
+ 2076 005b 00 00 00 00 		.4byte	0x12b
+ 2077 005d 01          		.1byte	0x7
+ 2078 005d 1B          		.1byte	0x0
+ 2079 005e 00 00 00 8A 		.1byte	0xb
+ 2080 0060 00          		.1byte	0x2
+ 2081 0060 04          		.1byte	0x7
+ 2082 0061 01          		.1byte	0x4
+ 2083 0061 00 00 00 00 		.1byte	0x1
+ 2084 0063 01          		.4byte	.LASF17
+ 2085 0064 07          		.1byte	0x1
+ 2086 0064 01          		.1byte	0x26
+ 2087 0065 00 00 00 00 		.1byte	0x1
+ 2088 0067 00 00 00 00 		.4byte	.LFB5
+ 2089 0069 00 00 00 00 		.4byte	.LFE5
+ 2090 006b 00 00 00 EA 		.4byte	.LLST4
+ 2091 006d 06          		.4byte	0x170
+ 2092 006d 76 61 6C 00 		.1byte	0xc
+ 2093 006f 01          		.4byte	.LASF18
+ 2094 0070 06          		.1byte	0x1
+ 2095 0070 00 00 00 83 		.1byte	0x27
+ 2096 0072 00 00 00 00 		.4byte	0x29
+ 2097 0074 00          		.4byte	.LLST5
+ 2098 0075 04          		.1byte	0xd
+ 2099 0075 01          		.4byte	.LASF19
+ 2100 0076 00 00 00 00 		.1byte	0x1
+ 2101 0078 01          		.1byte	0x28
+ 2102 0078 7C          		.4byte	0x170
+ 2103 0079 01          		.1byte	0x2
+ 2104 0079 00 00 00 00 		.1byte	0x76
+ 2105 007b 00 00 00 00 		.1byte	0x2
+ 2106 007d 00 00 00 00 		.1byte	0x5
+ 2107 007f 00 00 01 1B 		.4byte	.LASF16
+ 2108 0081 07          		.1byte	0x1
+ 2109 0082 64 61 74 00 		.1byte	0x29
+ 2110 0084 01          		.4byte	0x8a
+ 2111 0084 7D          		.1byte	0x0
+ 2112 0085 00 00 01 1B 		.1byte	0x9
+ 2113 0087 02          		.4byte	0x29
+ 2114 0087 76          		.4byte	0x180
+ 2115 0088 02          		.1byte	0xa
+ 2116 0088 08          		.4byte	0x12b
+ 2117 0089 69 00       		.1byte	0x20
+ 2118 008a 01          		.1byte	0x0
+ 2119 008a 7D          		.1byte	0x4
+ 2120 008b 00 00 00 3B 		.1byte	0x1
+ 2121 008d 00          		.4byte	.LASF20
+ 2122 008d 09          		.1byte	0x1
+ 2123 008e 00 00 00 29 		.1byte	0x12
+ 2124 0090 00 00 01 2B 		.1byte	0x1
+ 2125 0092 0A          		.4byte	.LFB3
+ 2126 0092 00 00 01 2B 		.4byte	.LFE3
+ 2127 0094 07          		.4byte	.LLST6
+ 2128 0095 00          		.4byte	0x1a9
+ 2129 0095 0B          		.1byte	0x6
+ 2130 0096 02          		.ascii "val\000"
+ 2131 0096 07          		.1byte	0x1
+ 2132 0097 04          		.1byte	0x11
+ 2133 0097 01          		.4byte	0x83
+ 2134 0098 00 00 00 00 		.4byte	.LLST7
+ 2135 009a 01          		.1byte	0x0
+ 2136 009a 26          		.1byte	0xe
+ 2137 009b 01          		.1byte	0x1
+ 2138 009b 00 00 00 00 		.4byte	.LASF46
+ 2139 009d 00 00 00 00 		.1byte	0x1
+ 2140 009f 00 00 00 00 		.1byte	0x91
+ 2141 00a1 00 00 01 70 		.1byte	0x1
+ 2142 00a3 0C          		.4byte	0x29
+ 2143 00a4 00 00 00 00 		.4byte	.LFB7
+ 2144 00a6 01          		.4byte	.LFE7
+ 2145 00a6 27          		.4byte	.LLST8
+ 2146 00a7 00 00 00 29 		.4byte	0x228
+ 2147 00a9 00 00 00 00 		.1byte	0x6
+ 2148 00ab 0D          		.ascii "T\000"
+ 2149 00ab 00 00 00 00 		.1byte	0x1
+ 2150 00ad 01          		.1byte	0x90
+ 2151 00ae 28          		.4byte	0x228
+ 2152 00ae 00 00 01 70 		.4byte	.LLST9
+ 2153 00b0 02          		.1byte	0x6
+ 2154 00b1 76          		.ascii "p\000"
+ 2155 00b1 02          		.1byte	0x1
+ 2156 00b2 05          		.1byte	0x90
+ 2157 00b2 00 00 00 00 		.4byte	0x228
+ 2158 00b4 01          		.4byte	.LLST10
+ 2159 00b5 29          		.1byte	0xf
+ 2160 00b5 00 00 00 8A 		.ascii "h\000"
+ 2161 00b7 00          		.1byte	0x1
+ 2162 00b8 09          		.1byte	0x90
+ 2163 00b8 00 00 00 29 		.4byte	0x228
+ 2164 00ba 00 00 01 80 		.1byte	0x2
+ 2165 00bc 0A          		.1byte	0x91
+ 2166 00bd 00 00 01 2B 		.1byte	0x0
+ 2167 00bf 20          		.1byte	0xc
+ 2168 00bf 00          		.4byte	.LASF21
+ 2169 00c0 04          		.1byte	0x1
+ 2170 00c0 01          		.1byte	0x92
+ 2171 00c1 00 00 00 00 		.4byte	0x78
+ 2172 00c3 01          		.4byte	.LLST11
+ 2173 00c3 12          		.1byte	0xc
+ 2174 00c4 01          		.4byte	.LASF22
+ 2175 00c4 00 00 00 00 		.1byte	0x1
+ 2176 00c6 00 00 00 00 		.1byte	0x92
+ 2177 00c8 00 00 00 00 		.4byte	0x78
+ 2178 00ca 00 00 01 A9 		.4byte	.LLST12
+ 2179 00cc 06          		.1byte	0xc
+ 2180 00cd 76 61 6C 00 		.4byte	.LASF23
+ 2181 00cf 01          		.1byte	0x1
+ 2182 00cf 11          		.1byte	0x92
+ 2183 00d0 00 00 00 83 		.4byte	0x78
+ 2184 00d2 00 00 00 00 		.4byte	.LLST13
+ 2185 00d4 00          		.1byte	0xd
+ 2186 00d4 0E          		.4byte	.LASF24
+ 2187 00d5 01          		.1byte	0x1
+ 2188 00d5 00 00 00 00 		.1byte	0x92
+ 2189 00d7 01          		.4byte	0x78
+ 2190 00d8 91          		.1byte	0x2
+ 2191 00d8 01          		.1byte	0x76
+ 2192 00d9 00 00 00 29 		.1byte	0x6
+ 2193 00db 00 00 00 00 		.1byte	0x0
+ 2194 00dd 00 00 00 00 		.1byte	0x10
+ 2195 00df 00 00 00 00 		.1byte	0x2
+ 2196 00e1 00 00 02 28 		.4byte	0x4d
+ 2197 00e3 06          		.1byte	0x11
+ 2198 00e3 54 00       		.4byte	.LASF25
+ 2199 00e4 01          		.1byte	0x3
+ 2200 00e5 90          		.1byte	0x2e
+ 2201 00e5 00 00 02 28 		.4byte	0x46
+ 2202 00e7 00 00 00 00 		.1byte	0x1
+ 2203 00e9 06          		.1byte	0x5
+ 2204 00ea 70 00       		.1byte	0x3
+ 2205 00eb 01          		.4byte	dig_T1
+ 2206 00eb 90          		.1byte	0x11
+ 2207 00ec 00 00 02 28 		.4byte	.LASF26
+ 2208 00ee 00 00 00 00 		.1byte	0x3
+ 2209 00f0 0F          		.1byte	0x2e
+ 2210 00f0 68 00       		.4byte	0x46
+ 2211 00f1 01          		.1byte	0x1
+ 2212 00f2 90          		.1byte	0x5
+ 2213 00f2 00 00 02 28 		.1byte	0x3
+ 2214 00f4 02          		.4byte	dig_P1
+ 2215 00f5 91          		.1byte	0x11
+ 2216 00f5 00          		.4byte	.LASF27
+ 2217 00f6 0C          		.1byte	0x3
+ 2218 00f6 00 00 00 00 		.1byte	0x2f
+ 2219 00f8 01          		.4byte	0x71
+ 2220 00f9 92          		.1byte	0x1
+ 2221 00f9 00 00 00 78 		.1byte	0x5
+ 2222 00fb 00 00 00 00 		.1byte	0x3
+ 2223 00fd 0C          		.4byte	dig_T2
+ 2224 00fe 00 00 00 00 		.1byte	0x11
+ 2225 0100 01          		.4byte	.LASF28
+ 2226 0100 92          		.1byte	0x3
+ 2227 0101 00 00 00 78 		.1byte	0x2f
+ 2228 0103 00 00 00 00 		.4byte	0x71
+ 2229 0105 0C          		.1byte	0x1
+ 2230 0105 00 00 00 00 		.1byte	0x5
+ 2231 0107 01          		.1byte	0x3
+ 2232 0108 92          		.4byte	dig_T3
+ 2233 0108 00 00 00 78 		.1byte	0x11
+ 2234 010a 00 00 00 00 		.4byte	.LASF29
+ 2235 010c 0D          		.1byte	0x3
+ 2236 010d 00 00 00 00 		.1byte	0x30
+ 2237 010f 01          		.4byte	0x71
+ 2238 010f 92          		.1byte	0x1
+ 2239 0110 00 00 00 78 		.1byte	0x5
+ 2240 0112 02          		.1byte	0x3
+ 2241 0112 76          		.4byte	dig_P2
+ 2242 0113 06          		.1byte	0x11
+ 2243 0113 00          		.4byte	.LASF30
+ 2244 0114 10          		.1byte	0x3
+ 2245 0114 02          		.1byte	0x30
+ 2246 0115 00 00 00 4D 		.4byte	0x71
+ 2247 0117 11          		.1byte	0x1
+ 2248 0117 00 00 00 00 		.1byte	0x5
+ 2249 0119 03          		.1byte	0x3
+ 2250 011a 2E          		.4byte	dig_P3
+ 2251 011a 00 00 00 46 		.1byte	0x11
+ 2252 011c 01          		.4byte	.LASF31
+ 2253 011d 05          		.1byte	0x3
+ 2254 011d 03          		.1byte	0x30
+ 2255 011e 00 00 00 00 		.4byte	0x71
+ 2256 0120 11          		.1byte	0x1
+ 2257 0120 00 00 00 00 		.1byte	0x5
+ 2258 0122 03          		.1byte	0x3
+ 2259 0123 2E          		.4byte	dig_P4
+ 2260 0123 00 00 00 46 		.1byte	0x11
+ 2261 0125 01          		.4byte	.LASF32
+ 2262 0126 05          		.1byte	0x3
+ 2263 0126 03          		.1byte	0x30
+ 2264 0127 00 00 00 00 		.4byte	0x71
+ 2265 0129 11          		.1byte	0x1
+ 2266 0129 00 00 00 00 		.1byte	0x5
+ 2267 012b 03          		.1byte	0x3
+ 2268 012c 2F          		.4byte	dig_P5
+ 2269 012c 00 00 00 71 		.1byte	0x11
+ 2270 012e 01          		.4byte	.LASF33
+ 2271 012f 05          		.1byte	0x3
+ 2272 012f 03          		.1byte	0x30
+ 2273 0130 00 00 00 00 		.4byte	0x71
+ 2274 0132 11          		.1byte	0x1
+ 2275 0132 00 00 00 00 		.1byte	0x5
+ 2276 0134 03          		.1byte	0x3
+ 2277 0135 2F          		.4byte	dig_P6
+ 2278 0135 00 00 00 71 		.1byte	0x11
+ 2279 0137 01          		.4byte	.LASF34
+ 2280 0138 05          		.1byte	0x3
+ 2281 0138 03          		.1byte	0x30
+ 2282 0139 00 00 00 00 		.4byte	0x71
+ 2283 013b 11          		.1byte	0x1
+ 2284 013b 00 00 00 00 		.1byte	0x5
+ 2285 013d 03          		.1byte	0x3
+ 2286 013e 30          		.4byte	dig_P7
+ 2287 013e 00 00 00 71 		.1byte	0x11
+ 2288 0140 01          		.4byte	.LASF35
+ 2289 0141 05          		.1byte	0x3
+ 2290 0141 03          		.1byte	0x30
+ 2291 0142 00 00 00 00 		.4byte	0x71
+ 2292 0144 11          		.1byte	0x1
+ 2293 0144 00 00 00 00 		.1byte	0x5
+ 2294 0146 03          		.1byte	0x3
+ 2295 0147 30          		.4byte	dig_P8
+ 2296 0147 00 00 00 71 		.1byte	0x11
+ 2297 0149 01          		.4byte	.LASF36
+ 2298 014a 05          		.1byte	0x3
+ 2299 014a 03          		.1byte	0x30
+ 2300 014b 00 00 00 00 		.4byte	0x71
+ 2301 014d 11          		.1byte	0x1
+ 2302 014d 00 00 00 00 		.1byte	0x5
+ 2303 014f 03          		.1byte	0x3
+ 2304 0150 30          		.4byte	dig_P9
+ 2305 0150 00 00 00 71 		.1byte	0x11
+ 2306 0152 01          		.4byte	.LASF37
+ 2307 0153 05          		.1byte	0x3
+ 2308 0153 03          		.1byte	0x31
+ 2309 0154 00 00 00 00 		.4byte	0x29
+ 2310 0156 11          		.1byte	0x1
+ 2311 0156 00 00 00 00 		.1byte	0x5
+ 2312 0158 03          		.1byte	0x3
+ 2313 0159 30          		.4byte	dig_H1
+ 2314 0159 00 00 00 71 		.1byte	0x11
+ 2315 015b 01          		.4byte	.LASF38
+ 2316 015c 05          		.1byte	0x3
+ 2317 015c 03          		.1byte	0x31
+ 2318 015d 00 00 00 00 		.4byte	0x29
+ 2319 015f 11          		.1byte	0x1
+ 2320 015f 00 00 00 00 		.1byte	0x5
+ 2321 0161 03          		.1byte	0x3
+ 2322 0162 30          		.4byte	dig_H3
+ 2323 0162 00 00 00 71 		.1byte	0x11
+ 2324 0164 01          		.4byte	.LASF39
+ 2325 0165 05          		.1byte	0x3
+ 2326 0165 03          		.1byte	0x32
+ 2327 0166 00 00 00 00 		.4byte	0x5f
+ 2328 0168 11          		.1byte	0x1
+ 2329 0168 00 00 00 00 		.1byte	0x5
+ 2330 016a 03          		.1byte	0x3
+ 2331 016b 30          		.4byte	dig_H6
+ 2332 016b 00 00 00 71 		.1byte	0x11
+ 2333 016d 01          		.4byte	.LASF40
+ 2334 016e 05          		.1byte	0x3
+ 2335 016e 03          		.1byte	0x33
+ 2336 016f 00 00 00 00 		.4byte	0x71
+ 2337 0171 11          		.1byte	0x1
+ 2338 0171 00 00 00 00 		.1byte	0x5
+ 2339 0173 03          		.1byte	0x3
+ 2340 0174 30          		.4byte	dig_H2
+ 2341 0174 00 00 00 71 		.1byte	0x11
+ 2342 0176 01          		.4byte	.LASF41
+ 2343 0177 05          		.1byte	0x3
+ 2344 0177 03          		.1byte	0x33
+ 2345 0178 00 00 00 00 		.4byte	0x71
+ 2346 017a 11          		.1byte	0x1
+ 2347 017a 00 00 00 00 		.1byte	0x5
+ 2348 017c 03          		.1byte	0x3
+ 2349 017d 30          		.4byte	dig_H4
+ 2350 017d 00 00 00 71 		.1byte	0x11
+ 2351 017f 01          		.4byte	.LASF42
+ 2352 0180 05          		.1byte	0x3
+ 2353 0180 03          		.1byte	0x33
+ 2354 0181 00 00 00 00 		.4byte	0x71
+ 2355 0183 11          		.1byte	0x1
+ 2356 0183 00 00 00 00 		.1byte	0x5
+ 2357 0185 03          		.1byte	0x3
+ 2358 0186 31          		.4byte	dig_H5
+ 2359 0186 00 00 00 29 		.1byte	0x12
+ 2360 0188 01          		.ascii "ut\000"
+ 2361 0189 05          		.1byte	0x3
+ 2362 0189 03          		.1byte	0x34
+ 2363 018a 00 00 00 00 		.4byte	0x83
+ 2364 018c 11          		.1byte	0x1
+ 2365 018c 00 00 00 00 		.1byte	0x5
+ 2366 018e 03          		.1byte	0x3
+ 2367 018f 31          		.4byte	ut
+ 2368 018f 00 00 00 29 		.1byte	0x12
+ 2369 0191 01          		.ascii "up\000"
+ 2370 0192 05          		.1byte	0x3
+ 2371 0192 03          		.1byte	0x35
+ 2372 0193 00 00 00 00 		.4byte	0x83
+ 2373 0195 11          		.1byte	0x1
+ 2374 0195 00 00 00 00 		.1byte	0x5
+ 2375 0197 03          		.1byte	0x3
+ 2376 0198 32          		.4byte	up
+ 2377 0198 00 00 00 5F 		.1byte	0x12
+ 2378 019a 01          		.ascii "uh\000"
+ 2379 019b 05          		.1byte	0x3
+ 2380 019b 03          		.1byte	0x35
+ 2381 019c 00 00 00 00 		.4byte	0x83
+ 2382 019e 11          		.1byte	0x1
+ 2383 019e 00 00 00 00 		.1byte	0x5
+ 2384 01a0 03          		.1byte	0x3
+ 2385 01a1 33          		.4byte	uh
+ 2386 01a1 00 00 00 71 		.1byte	0x0
+ 2387 01a3 01          		.section	.debug_abbrev
+ 2388 01a4 05          		.1byte	0x1
+ 2389 01a4 03          		.1byte	0x11
+ 2390 01a5 00 00 00 00 		.1byte	0x1
+ 2391 01a7 11          		.1byte	0x25
+ 2392 01a7 00 00 00 00 		.1byte	0xe
+ 2393 01a9 03          		.1byte	0x13
+ 2394 01aa 33          		.1byte	0xb
+ 2395 01aa 00 00 00 71 		.1byte	0x3
+ 2396 01ac 01          		.1byte	0xe
+ 2397 01ad 05          		.1byte	0x1b
+ 2398 01ad 03          		.1byte	0xe
+ 2399 01ae 00 00 00 00 		.1byte	0x11
+ 2400 01b0 11          		.1byte	0x1
+ 2401 01b0 00 00 00 00 		.1byte	0x52
+ 2402 01b2 03          		.1byte	0x1
+ 2403 01b3 33          		.1byte	0x55
+ 2404 01b3 00 00 00 71 		.1byte	0x6
+ 2405 01b5 01          		.1byte	0x10
+ 2406 01b6 05          		.1byte	0x6
+ 2407 01b6 03          		.1byte	0x0
+ 2408 01b7 00 00 00 00 		.1byte	0x0
+ 2409 01b9 12          		.1byte	0x2
+ 2410 01b9 75 74 00    		.1byte	0x16
+ 2411 01bb 03          		.1byte	0x0
+ 2412 01bb 34          		.1byte	0x3
+ 2413 01bc 00 00 00 83 		.1byte	0xe
+ 2414 01be 01          		.1byte	0x3a
+ 2415 01be 05          		.1byte	0xb
+ 2416 01bf 03          		.1byte	0x3b
+ 2417 01bf 00 00 00 00 		.1byte	0xb
+ 2418 01c1 12          		.1byte	0x49
+ 2419 01c2 75 70 00    		.1byte	0x13
+ 2420 01c3 03          		.1byte	0x0
+ 2421 01c4 35          		.1byte	0x0
+ 2422 01c4 00 00 00 83 		.1byte	0x3
+ 2423 01c6 01          		.1byte	0x24
+ 2424 01c7 05          		.1byte	0x0
+ 2425 01c7 03          		.1byte	0xb
+ 2426 01c8 00 00 00 00 		.1byte	0xb
+ 2427 01ca 12          		.1byte	0x3e
+ 2428 01ca 75 68 00    		.1byte	0xb
+ 2429 01cc 03          		.1byte	0x3
+ 2430 01cc 35          		.1byte	0xe
+ 2431 01cd 00 00 00 83 		.1byte	0x0
+ 2432 01cf 01          		.1byte	0x0
+ 2433 01cf 05          		.1byte	0x4
+ 2434 01d0 03          		.1byte	0x2e
+ 2435 01d0 00 00 00 00 		.1byte	0x1
+ 2436 01d2 00          		.1byte	0x3f
+ 2437                 		.1byte	0xc
+ 2438 0000 01          		.1byte	0x3
+ 2439 0000 11          		.1byte	0xe
+ 2440 0001 01          		.1byte	0x3a
+ 2441 0001 25          		.1byte	0xb
+ 2442 0002 0E          		.1byte	0x3b
+ 2443 0002 13          		.1byte	0xb
+ 2444 0003 0B          		.1byte	0x27
+ 2445 0003 03          		.1byte	0xc
+ 2446 0004 0E          		.1byte	0x11
+ 2447 0004 1B          		.1byte	0x1
+ 2448 0005 0E          		.1byte	0x12
+ 2449 0005 11          		.1byte	0x1
+ 2450 0006 01          		.1byte	0x40
+ 2451 0006 52          		.1byte	0x6
+ 2452 0007 01          		.1byte	0x1
+ 2453 0007 55          		.1byte	0x13
+ 2454 0008 06          		.1byte	0x0
+ 2455 0008 10          		.1byte	0x0
+ 2456 0009 06          		.1byte	0x5
+ 2457 0009 00          		.1byte	0x34
+ 2458 000a 00          		.1byte	0x0
+ 2459 000a 02          		.1byte	0x3
+ 2460 000b 16          		.1byte	0xe
+ 2461 000b 00          		.1byte	0x3a
+ 2462 000c 03          		.1byte	0xb
+ 2463 000c 0E          		.1byte	0x3b
+ 2464 000d 3A          		.1byte	0xb
+ 2465 000d 0B          		.1byte	0x49
+ 2466 000e 3B          		.1byte	0x13
+ 2467 000e 0B          		.1byte	0x0
+ 2468 000f 49          		.1byte	0x0
+ 2469 000f 13          		.1byte	0x6
+ 2470 0010 00          		.1byte	0x5
+ 2471 0010 00          		.1byte	0x0
+ 2472 0011 03          		.1byte	0x3
+ 2473 0011 24          		.1byte	0x8
+ 2474 0012 00          		.1byte	0x3a
+ 2475 0012 0B          		.1byte	0xb
+ 2476 0013 0B          		.1byte	0x3b
+ 2477 0013 3E          		.1byte	0xb
+ 2478 0014 0B          		.1byte	0x49
+ 2479 0014 03          		.1byte	0x13
+ 2480 0015 0E          		.1byte	0x2
+ 2481 0015 00          		.1byte	0x6
+ 2482 0016 00          		.1byte	0x0
+ 2483 0016 04          		.1byte	0x0
+ 2484 0017 2E          		.1byte	0x7
+ 2485 0017 01          		.1byte	0x34
+ 2486 0018 3F          		.1byte	0x0
+ 2487 0018 0C          		.1byte	0x3
+ 2488 0019 03          		.1byte	0x8
+ 2489 0019 0E          		.1byte	0x3a
+ 2490 001a 3A          		.1byte	0xb
+ 2491 001a 0B          		.1byte	0x3b
+ 2492 001b 3B          		.1byte	0xb
+ 2493 001b 0B          		.1byte	0x49
+ 2494 001c 27          		.1byte	0x13
+ 2495 001c 0C          		.1byte	0x2
+ 2496 001d 11          		.1byte	0xa
+ 2497 001d 01          		.1byte	0x0
+ 2498 001e 12          		.1byte	0x0
+ 2499 001e 01          		.1byte	0x8
+ 2500 001f 40          		.1byte	0x34
+ 2501 001f 06          		.1byte	0x0
+ 2502 0020 01          		.1byte	0x3
+ 2503 0020 13          		.1byte	0x8
+ 2504 0021 00          		.1byte	0x3a
+ 2505 0021 00          		.1byte	0xb
+ 2506 0022 05          		.1byte	0x3b
+ 2507 0022 34          		.1byte	0xb
+ 2508 0023 00          		.1byte	0x49
+ 2509 0023 03          		.1byte	0x13
+ 2510 0024 0E          		.1byte	0x0
+ 2511 0024 3A          		.1byte	0x0
+ 2512 0025 0B          		.1byte	0x9
+ 2513 0025 3B          		.1byte	0x1
+ 2514 0026 0B          		.1byte	0x1
+ 2515 0026 49          		.1byte	0x49
+ 2516 0027 13          		.1byte	0x13
+ 2517 0027 00          		.1byte	0x1
+ 2518 0028 00          		.1byte	0x13
+ 2519 0028 06          		.1byte	0x0
+ 2520 0029 05          		.1byte	0x0
+ 2521 0029 00          		.1byte	0xa
+ 2522 002a 03          		.1byte	0x21
+ 2523 002a 08          		.1byte	0x0
+ 2524 002b 3A          		.1byte	0x49
+ 2525 002b 0B          		.1byte	0x13
+ 2526 002c 3B          		.1byte	0x2f
+ 2527 002c 0B          		.1byte	0xb
+ 2528 002d 49          		.1byte	0x0
+ 2529 002d 13          		.1byte	0x0
+ 2530 002e 02          		.1byte	0xb
+ 2531 002e 06          		.1byte	0x24
+ 2532 002f 00          		.1byte	0x0
+ 2533 002f 00          		.1byte	0xb
+ 2534 0030 07          		.1byte	0xb
+ 2535 0030 34          		.1byte	0x3e
+ 2536 0031 00          		.1byte	0xb
+ 2537 0031 03          		.1byte	0x0
+ 2538 0032 08          		.1byte	0x0
+ 2539 0032 3A          		.1byte	0xc
+ 2540 0033 0B          		.1byte	0x34
+ 2541 0033 3B          		.1byte	0x0
+ 2542 0034 0B          		.1byte	0x3
+ 2543 0034 49          		.1byte	0xe
+ 2544 0035 13          		.1byte	0x3a
+ 2545 0035 02          		.1byte	0xb
+ 2546 0036 0A          		.1byte	0x3b
+ 2547 0036 00          		.1byte	0xb
+ 2548 0037 00          		.1byte	0x49
+ 2549 0037 08          		.1byte	0x13
+ 2550 0038 34          		.1byte	0x2
+ 2551 0038 00          		.1byte	0x6
+ 2552 0039 03          		.1byte	0x0
+ 2553 0039 08          		.1byte	0x0
+ 2554 003a 3A          		.1byte	0xd
+ 2555 003a 0B          		.1byte	0x34
+ 2556 003b 3B          		.1byte	0x0
+ 2557 003b 0B          		.1byte	0x3
+ 2558 003c 49          		.1byte	0xe
+ 2559 003c 13          		.1byte	0x3a
+ 2560 003d 00          		.1byte	0xb
+ 2561 003d 00          		.1byte	0x3b
+ 2562 003e 09          		.1byte	0xb
+ 2563 003e 01          		.1byte	0x49
+ 2564 003f 01          		.1byte	0x13
+ 2565 003f 49          		.1byte	0x2
+ 2566 0040 13          		.1byte	0xa
+ 2567 0040 01          		.1byte	0x0
+ 2568 0041 13          		.1byte	0x0
+ 2569 0041 00          		.1byte	0xe
+ 2570 0042 00          		.1byte	0x2e
+ 2571 0042 0A          		.1byte	0x1
+ 2572 0043 21          		.1byte	0x3f
+ 2573 0043 00          		.1byte	0xc
+ 2574 0044 49          		.1byte	0x3
+ 2575 0044 13          		.1byte	0xe
+ 2576 0045 2F          		.1byte	0x3a
+ 2577 0045 0B          		.1byte	0xb
+ 2578 0046 00          		.1byte	0x3b
+ 2579 0046 00          		.1byte	0xb
+ 2580 0047 0B          		.1byte	0x27
+ 2581 0047 24          		.1byte	0xc
+ 2582 0048 00          		.1byte	0x49
+ 2583 0048 0B          		.1byte	0x13
+ 2584 0049 0B          		.1byte	0x11
+ 2585 0049 3E          		.1byte	0x1
+ 2586 004a 0B          		.1byte	0x12
+ 2587 004a 00          		.1byte	0x1
+ 2588 004b 00          		.1byte	0x40
+ 2589 004b 0C          		.1byte	0x6
+ 2590 004c 34          		.1byte	0x1
+ 2591 004c 00          		.1byte	0x13
+ 2592 004d 03          		.1byte	0x0
+ 2593 004d 0E          		.1byte	0x0
+ 2594 004e 3A          		.1byte	0xf
+ 2595 004e 0B          		.1byte	0x5
+ 2596 004f 3B          		.1byte	0x0
+ 2597 004f 0B          		.1byte	0x3
+ 2598 0050 49          		.1byte	0x8
+ 2599 0050 13          		.1byte	0x3a
+ 2600 0051 02          		.1byte	0xb
+ 2601 0051 06          		.1byte	0x3b
+ 2602 0052 00          		.1byte	0xb
+ 2603 0052 00          		.1byte	0x49
+ 2604 0053 0D          		.1byte	0x13
+ 2605 0053 34          		.1byte	0x2
+ 2606 0054 00          		.1byte	0xa
+ 2607 0054 03          		.1byte	0x0
+ 2608 0055 0E          		.1byte	0x0
+ 2609 0055 3A          		.1byte	0x10
+ 2610 0056 0B          		.1byte	0xf
+ 2611 0056 3B          		.1byte	0x0
+ 2612 0057 0B          		.1byte	0xb
+ 2613 0057 49          		.1byte	0xb
+ 2614 0058 13          		.1byte	0x49
+ 2615 0058 02          		.1byte	0x13
+ 2616 0059 0A          		.1byte	0x0
+ 2617 0059 00          		.1byte	0x0
+ 2618 005a 00          		.1byte	0x11
+ 2619 005a 0E          		.1byte	0x34
+ 2620 005b 2E          		.1byte	0x0
+ 2621 005b 01          		.1byte	0x3
+ 2622 005c 3F          		.1byte	0xe
+ 2623 005c 0C          		.1byte	0x3a
+ 2624 005d 03          		.1byte	0xb
+ 2625 005d 0E          		.1byte	0x3b
+ 2626 005e 3A          		.1byte	0xb
+ 2627 005e 0B          		.1byte	0x49
+ 2628 005f 3B          		.1byte	0x13
+ 2629 005f 0B          		.1byte	0x3f
+ 2630 0060 27          		.1byte	0xc
+ 2631 0060 0C          		.1byte	0x2
+ 2632 0061 49          		.1byte	0xa
+ 2633 0061 13          		.1byte	0x0
+ 2634 0062 11          		.1byte	0x0
+ 2635 0062 01          		.1byte	0x12
+ 2636 0063 12          		.1byte	0x34
+ 2637 0063 01          		.1byte	0x0
+ 2638 0064 40          		.1byte	0x3
+ 2639 0064 06          		.1byte	0x8
+ 2640 0065 01          		.1byte	0x3a
+ 2641 0065 13          		.1byte	0xb
+ 2642 0066 00          		.1byte	0x3b
+ 2643 0066 00          		.1byte	0xb
+ 2644 0067 0F          		.1byte	0x49
+ 2645 0067 05          		.1byte	0x13
+ 2646 0068 00          		.1byte	0x3f
+ 2647 0068 03          		.1byte	0xc
+ 2648 0069 08          		.1byte	0x2
+ 2649 0069 3A          		.1byte	0xa
+ 2650 006a 0B          		.1byte	0x0
+ 2651 006a 3B          		.1byte	0x0
+ 2652 006b 0B          		.1byte	0x0
+ 2653 006b 49          		.section	.debug_pubnames,"",@progbits
+ 2654 006c 13          		.4byte	0x163
+ 2655 006c 02          		.2byte	0x2
+ 2656 006d 0A          		.4byte	.Ldebug_info0
+ 2657 006d 00          		.4byte	0x3a6
+ 2658 006e 00          		.4byte	0x9c
+ 2659 006e 10          		.ascii "BME280_Trigger\000"
+ 2660 006f 0F          		.4byte	0xc1
+ 2661 006f 00          		.ascii "printInDecimal\000"
+ 2662 0070 0B          		.4byte	0xea
+ 2663 0070 0B          		.ascii "BME280_Getdata\000"
+ 2664 0071 49          		.4byte	0x12e
+ 2665 0071 13          		.ascii "BME280_Init\000"
+ 2666 0072 00          		.4byte	0x180
+ 2667 0072 00          		.ascii "printUnDecimal\000"
+ 2668 0073 11          		.4byte	0x1a9
+ 2669 0073 34          		.ascii "BME280_compensation_int32\000"
+ 2670 0074 00          		.4byte	0x22e
+ 2671 0074 03          		.ascii "dig_T1\000"
+ 2672 0075 0E          		.4byte	0x240
+ 2673 0075 3A          		.ascii "dig_P1\000"
+ 2674 0076 0B          		.4byte	0x252
+ 2675 0076 3B          		.ascii "dig_T2\000"
+ 2676 0077 0B          		.4byte	0x264
+ 2677 0077 49          		.ascii "dig_T3\000"
+ 2678 0078 13          		.4byte	0x276
+ 2679 0078 3F          		.ascii "dig_P2\000"
+ 2680 0079 0C          		.4byte	0x288
+ 2681 0079 02          		.ascii "dig_P3\000"
+ 2682 007a 0A          		.4byte	0x29a
+ 2683 007a 00          		.ascii "dig_P4\000"
+ 2684 007b 00          		.4byte	0x2ac
+ 2685 007b 12          		.ascii "dig_P5\000"
+ 2686 007c 34          		.4byte	0x2be
+ 2687 007c 00          		.ascii "dig_P6\000"
+ 2688 007d 03          		.4byte	0x2d0
+ 2689 007d 08          		.ascii "dig_P7\000"
+ 2690 007e 3A          		.4byte	0x2e2
+ 2691 007e 0B          		.ascii "dig_P8\000"
+ 2692 007f 3B          		.4byte	0x2f4
+ 2693 007f 0B          		.ascii "dig_P9\000"
+ 2694 0080 49          		.4byte	0x306
+ 2695 0080 13          		.ascii "dig_H1\000"
+ 2696 0081 3F          		.4byte	0x318
+ 2697 0081 0C          		.ascii "dig_H3\000"
+ 2698 0082 02          		.4byte	0x32a
+ 2699 0082 0A          		.ascii "dig_H6\000"
+ 2700 0083 00          		.4byte	0x33c
+ 2701 0083 00          		.ascii "dig_H2\000"
+ 2702 0084 00          		.4byte	0x34e
+ 2703                 		.ascii "dig_H4\000"
+ 2704 0000 00 00 01 63 		.4byte	0x360
+ 2705 0002 00 02       		.ascii "dig_H5\000"
+ 2706 0003 00 00 00 00 		.4byte	0x372
+ 2707 0005 00 00 03 A6 		.ascii "ut\000"
+ 2708 0007 00 00 00 9C 		.4byte	0x383
+ 2709 0009 42 4D 45 32 		.ascii "up\000"
+ 2709      38 30 5F 54 
+ 2709      72 69 67 67 
+ 2709      65 72 00 
+ 2710 0010 00 00 00 C1 		.4byte	0x394
+ 2711 0012 70 72 69 6E 		.ascii "uh\000"
+ 2711      74 49 6E 44 
+ 2711      65 63 69 6D 
+ 2711      61 6C 00 
+ 2712 001a 00 00 00 EA 		.4byte	0x0
+ 2713 001c 42 4D 45 32 		.section	.debug_aranges,"",@progbits
+ 2713      38 30 5F 47 
+ 2713      65 74 64 61 
+ 2713      74 61 00 
+ 2714 0023 00 00 01 2E 		.4byte	0x44
+ 2715 0025 42 4D 45 32 		.2byte	0x2
+ 2715      38 30 5F 49 
+ 2715      6E 69 74 00 
+ 2716 002b 00 00 01 80 		.4byte	.Ldebug_info0
+ 2717 002d 70 72 69 6E 		.1byte	0x4
+ 2717      74 55 6E 44 
+ 2717      65 63 69 6D 
+ 2717      61 6C 00 
+ 2718 0035 00 00 01 A9 		.1byte	0x0
+ 2719 0037 42 4D 45 32 		.2byte	0x0
+ 2719      38 30 5F 63 
+ 2719      6F 6D 70 65 
+ 2719      6E 73 61 74 
+ 2719      69 6F 6E 5F 
+ 2720 0044 00 00 02 2E 		.2byte	0x0
+ 2721 0046 64 69 67 5F 		.4byte	.LFB4
+ 2721      54 31 00 
+ 2722 0049 00 00 02 40 		.4byte	.LFE4-.LFB4
+ 2723 004b 64 69 67 5F 		.4byte	.LFB2
+ 2723      50 31 00 
+ 2724 004f 00 00 02 52 		.4byte	.LFE2-.LFB2
+ 2725 0051 64 69 67 5F 		.4byte	.LFB6
+ 2725      54 32 00 
+ 2726 0054 00 00 02 64 		.4byte	.LFE6-.LFB6
+ 2727 0056 64 69 67 5F 		.4byte	.LFB5
+ 2727      54 33 00 
+ 2728 005a 00 00 02 76 		.4byte	.LFE5-.LFB5
+ 2729 005c 64 69 67 5F 		.4byte	.LFB3
+ 2729      50 32 00 
+ 2730 005f 00 00 02 88 		.4byte	.LFE3-.LFB3
+ 2731 0061 64 69 67 5F 		.4byte	.LFB7
+ 2731      50 33 00 
+ 2732 0065 00 00 02 9A 		.4byte	.LFE7-.LFB7
+ 2733 0067 64 69 67 5F 		.4byte	0x0
+ 2733      50 34 00 
+ 2734 006a 00 00 02 AC 		.4byte	0x0
+ 2735 006c 64 69 67 5F 		.section	.debug_ranges,"",@progbits
+ 2735      50 35 00 
+ 2736 0070 00 00 02 BE 	.Ldebug_ranges0:
+ 2737 0072 64 69 67 5F 		.4byte	.Ltext0
+ 2737      50 36 00 
+ 2738 0075 00 00 02 D0 		.4byte	.Letext0
+ 2739 0077 64 69 67 5F 		.4byte	.LFB4
+ 2739      50 37 00 
+ 2740 007b 00 00 02 E2 		.4byte	.LFE4
+ 2741 007d 64 69 67 5F 		.4byte	.LFB2
+ 2741      50 38 00 
+ 2742 0080 00 00 02 F4 		.4byte	.LFE2
+ 2743 0082 64 69 67 5F 		.4byte	.LFB6
+ 2743      50 39 00 
+ 2744 0086 00 00 03 06 		.4byte	.LFE6
+ 2745 0088 64 69 67 5F 		.4byte	.LFB5
+ 2745      48 31 00 
+ 2746 008b 00 00 03 18 		.4byte	.LFE5
+ 2747 008d 64 69 67 5F 		.4byte	.LFB3
+ 2747      48 33 00 
+ 2748 0091 00 00 03 2A 		.4byte	.LFE3
+ 2749 0093 64 69 67 5F 		.4byte	.LFB7
+ 2749      48 36 00 
+ 2750 0096 00 00 03 3C 		.4byte	.LFE7
+ 2751 0098 64 69 67 5F 		.4byte	0x0
+ 2751      48 32 00 
+ 2752 009c 00 00 03 4E 		.4byte	0x0
+ 2753 009e 64 69 67 5F 		.section	.debug_str,"MS",@progbits,1
+ 2753      48 34 00 
+ 2754 00a1 00 00 03 60 	.LASF46:
+ 2755 00a3 64 69 67 5F 		.ascii "BME280_compensation_int32\000"
+ 2755      48 35 00 
+ 2756 00a7 00 00 03 72 	.LASF14:
+ 2757 00a9 75 74 00    		.ascii "printInDecimal\000"
+ 2758 00aa 00 00 03 83 	.LASF8:
+ 2759 00ac 75 70 00    		.ascii "short int\000"
+ 2760 00ae 00 00 03 94 	.LASF21:
+ 2761 00b0 75 68 00    		.ascii "var1\000"
+ 2762 00b1 00 00 00 00 	.LASF22:
+ 2763                 		.ascii "var2\000"
+ 2764 0000 00 00 00 44 	.LASF1:
+ 2765 0002 00 02       		.ascii "uint16\000"
+ 2766 0003 00 00 00 00 	.LASF13:
+ 2767 0005 04          		.ascii "BME280_Trigger\000"
+ 2768 0005 00          	.LASF0:
+ 2769 0006 00 00       		.ascii "uint8\000"
+ 2770 0007 00 00       	.LASF11:
+ 2771 0008 00 00 00 00 		.ascii "bool\000"
+ 2772 000a 00 00 00 00 	.LASF23:
+ 2773 000c 00 00 00 00 		.ascii "v_x1_u32r\000"
+ 2774 000e 00 00 00 00 	.LASF36:
+ 2775 0010 00 00 00 00 		.ascii "dig_P9\000"
+ 2776 0012 00 00 00 00 	.LASF6:
+ 2777 0014 00 00 00 00 		.ascii "int8\000"
+ 2778 0016 00 00 00 00 	.LASF16:
+ 2779 0018 00 00 00 00 		.ascii "ret_status\000"
+ 2780 001a 00 00 00 00 	.LASF10:
+ 2781 001c 00 00 00 00 		.ascii "long int\000"
+ 2782 001e 00 00 00 00 	.LASF24:
+ 2783 0020 00 00 00 00 		.ascii "t_fine\000"
+ 2784 0022 00 00 00 00 	.LASF17:
+ 2785                 		.ascii "BME280_Init\000"
+ 2786                 	.LASF20:
+ 2787 0000 00 00 00 00 		.ascii "printUnDecimal\000"
+ 2788 0002 00 00 00 00 	.LASF19:
+ 2789 0004 00 00 00 00 		.ascii "coeff\000"
+ 2790 0006 00 00 00 00 	.LASF2:
+ 2791 0008 00 00 00 00 		.ascii "unsigned char\000"
+ 2792 000a 00 00 00 00 	.LASF45:
+ 2793 000c 00 00 00 00 		.ascii "C:\\CSR_uEnergy_SDK-2.4.5.13\\apps\\CSRmesh-1.3-Examples-Applications_icp\\applications\\W
+ 2794 000e 00 00 00 00 	.LASF7:
+ 2795 0010 00 00 00 00 		.ascii "signed char\000"
+ 2796 0012 00 00 00 00 	.LASF12:
+ 2797 0014 00 00 00 00 		.ascii "unsigned int\000"
+ 2798 0016 00 00 00 00 	.LASF37:
+ 2799 0018 00 00 00 00 		.ascii "dig_H1\000"
+ 2800 001a 00 00 00 00 	.LASF40:
+ 2801 001c 00 00 00 00 		.ascii "dig_H2\000"
+ 2802 001e 00 00 00 00 	.LASF38:
+ 2803                 		.ascii "dig_H3\000"
+ 2804                 	.LASF41:
+ 2805 0000 42 4D 45 32 		.ascii "dig_H4\000"
+ 2805      38 30 5F 63 
+ 2805      6F 6D 70 65 
+ 2805      6E 73 61 74 
+ 2805      69 6F 6E 5F 
+ 2806                 	.LASF42:
+ 2807 000d 70 72 69 6E 		.ascii "dig_H5\000"
+ 2807      74 49 6E 44 
+ 2807      65 63 69 6D 
+ 2807      61 6C 00 
+ 2808                 	.LASF39:
+ 2809 0014 73 68 6F 72 		.ascii "dig_H6\000"
+ 2809      74 20 69 6E 
+ 2809      74 00 
+ 2810                 	.LASF3:
+ 2811 0019 76 61 72 31 		.ascii "short unsigned int\000"
+ 2811      00 
+ 2812                 	.LASF43:
+ 2813 001c 76 61 72 32 		.ascii "GNU C 4.3.4 CSR version 24 for xap [1865517]\000"
+ 2813      00 
+ 2814                 	.LASF26:
+ 2815 001e 75 69 6E 74 		.ascii "dig_P1\000"
+ 2815      31 36 00 
+ 2816                 	.LASF29:
+ 2817 0022 42 4D 45 32 		.ascii "dig_P2\000"
+ 2817      38 30 5F 54 
+ 2817      72 69 67 67 
+ 2817      65 72 00 
+ 2818                 	.LASF30:
+ 2819 0029 75 69 6E 74 		.ascii "dig_P3\000"
+ 2819      38 00 
+ 2820                 	.LASF31:
+ 2821 002c 62 6F 6F 6C 		.ascii "dig_P4\000"
+ 2821      00 
+ 2822                 	.LASF32:
+ 2823 002f 76 5F 78 31 		.ascii "dig_P5\000"
+ 2823      5F 75 33 32 
+ 2823      72 00 
+ 2824                 	.LASF33:
+ 2825 0034 64 69 67 5F 		.ascii "dig_P6\000"
+ 2825      50 39 00 
+ 2826                 	.LASF34:
+ 2827 0037 69 6E 74 38 		.ascii "dig_P7\000"
+ 2827      00 
+ 2828                 	.LASF35:
+ 2829 003a 72 65 74 5F 		.ascii "dig_P8\000"
+ 2829      73 74 61 74 
+ 2829      75 73 00 
+ 2830                 	.LASF4:
+ 2831 003f 6C 6F 6E 67 		.ascii "uint32\000"
+ 2831      20 69 6E 74 
+ 2831      00 
+ 2832                 	.LASF5:
+ 2833 0044 74 5F 66 69 		.ascii "long unsigned int\000"
+ 2833      6E 65 00 
+ 2834                 	.LASF9:
+ 2835 0047 42 4D 45 32 		.ascii "int32\000"
+ 2835      38 30 5F 49 
+ 2835      6E 69 74 00 
+ 2836                 	.LASF25:
+ 2837 004d 70 72 69 6E 		.ascii "dig_T1\000"
+ 2837      74 55 6E 44 
+ 2837      65 63 69 6D 
+ 2837      61 6C 00 
+ 2838                 	.LASF27:
+ 2839 0055 63 6F 65 66 		.ascii "dig_T2\000"
+ 2839      66 00 
+ 2840                 	.LASF28:
+ 2841 0058 75 6E 73 69 		.ascii "dig_T3\000"
+ 2841      67 6E 65 64 
+ 2841      20 63 68 61 
+ 2841      72 00 
+ 2842                 	.LASF18:
+ 2843 005f 43 3A 5C 43 		.ascii "chip_id\000"
+ 2843      53 52 5F 75 
+ 2843      45 6E 65 72 
+ 2843      67 79 5F 53 
+ 2843      44 4B 2D 32 
+ 2844                 	.LASF44:
+ 2845 0095 73 69 67 6E 		.ascii "sensor_bme280.c\000"
+ 2845      65 64 20 63 
+ 2845      68 61 72 00 
+ 2846                 	.LASF15:
+ 2847 009b 75 6E 73 69 		.ascii "BME280_Getdata\000"
+ 2847      67 6E 65 64 
+ 2847      20 69 6E 74 
+ 2847      00 
+ 2848                 		.ident	"GCC: (GNU) 4.3.4 CSR version 24 for xap [1865517]"
+ 2849 00a2 64 69 67 5F 	...
+ 2849      48 31 00 

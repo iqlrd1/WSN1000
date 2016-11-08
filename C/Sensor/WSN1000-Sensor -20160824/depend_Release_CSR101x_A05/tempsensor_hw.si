@@ -1,0 +1,971 @@
+   1                 		.file	"tempsensor_hw.c"
+   2                 		.variant xap2+
+   3                 	
+   4                 		.small
+   5                 	
+   6                 		.section	.debug_abbrev,"",@progbits
+   7                 	.Ldebug_abbrev0:
+   8                 		.section	.debug_info,"",@progbits
+   9                 	.Ldebug_info0:
+  10                 		.section	.debug_line,"",@progbits
+  11                 	.Ldebug_line0:
+  12 0000 00 00 00 00 		.text
+  12      00 02 00 00 
+  12      00 00 01 01 
+  12      FB 0E 0D 00 
+  12      01 01 01 01 
+  13                 	.Ltext0:
+  14                 		.section	.text.TempSensorRead,"ax",@progbits
+  15                 		.global	TempSensorRead
+  16                 		.type	TempSensorRead, @function
+  17                 	TempSensorRead:
+  18                 	.LFB4:
+  19                 		.file 1 "tempsensor_hw.c"
+   0:tempsensor_hw.c **** /******************************************************************************
+   1:tempsensor_hw.c ****  *  Copyright Cambridge Silicon Radio Limited 2015
+   2:tempsensor_hw.c ****  *  CSR Bluetooth Low Energy CSRmesh 1.3 Release
+   3:tempsensor_hw.c ****  *  Application version 1.3
+   4:tempsensor_hw.c ****  *
+   5:tempsensor_hw.c ****  *  FILE
+   6:tempsensor_hw.c ****  *      tempsensor_hw.c
+   7:tempsensor_hw.c ****  *
+   8:tempsensor_hw.c ****  *  DESCRIPTION
+   9:tempsensor_hw.c ****  *      This file implements the abstraction for temperature sensor hardware
+  10:tempsensor_hw.c ****  *
+  11:tempsensor_hw.c ****  *****************************************************************************/
+  12:tempsensor_hw.c **** 
+  13:tempsensor_hw.c **** /*============================================================================*
+  14:tempsensor_hw.c ****  *  SDK Header Files
+  15:tempsensor_hw.c ****  *============================================================================*/
+  16:tempsensor_hw.c **** #include <pio.h>
+  17:tempsensor_hw.c **** #include <timer.h>
+  18:tempsensor_hw.c **** 
+  19:tempsensor_hw.c **** /*============================================================================*
+  20:tempsensor_hw.c ****  *  Local Header Files
+  21:tempsensor_hw.c ****  *============================================================================*/
+  22:tempsensor_hw.c **** #include "user_config.h"
+  23:tempsensor_hw.c **** #include "tempsensor_hw.h"
+  24:tempsensor_hw.c **** #ifdef TEMPERATURE_SENSOR_STTS751
+  25:tempsensor_hw.c **** #include "stts751_temperature_sensor.h"
+  26:tempsensor_hw.c **** #endif /* TEMPERATURE_SENSOR_STTS751 */
+  27:tempsensor_hw.c **** 
+  28:tempsensor_hw.c **** /*============================================================================*
+  29:tempsensor_hw.c ****  *  Private data
+  30:tempsensor_hw.c ****  *============================================================================*/
+  31:tempsensor_hw.c **** /* Temperature sensor read delay after issuing read command. */
+  32:tempsensor_hw.c **** #ifdef TEMPERATURE_SENSOR_STTS751
+  33:tempsensor_hw.c **** #define TEMP_READ_DELAY         (MAX_CONVERSION_TIME * MILLISECOND)
+  34:tempsensor_hw.c **** #endif /* TEMPERATURE_SENSOR_STTS751 */
+  35:tempsensor_hw.c **** 
+  36:tempsensor_hw.c **** /* Event handler to be called after temperature is read from sensor. */
+  37:tempsensor_hw.c **** static TEMPSENSOR_EVENT_HANDLER_T eventHandler;
+  38:tempsensor_hw.c **** 
+  39:tempsensor_hw.c **** /* Timer ID for temperature read delay. */
+  40:tempsensor_hw.c **** static timer_id read_delay_tid = TIMER_INVALID;
+  41:tempsensor_hw.c **** 
+  42:tempsensor_hw.c **** /*============================================================================*
+  43:tempsensor_hw.c ****  *  Private Function Implementations
+  44:tempsensor_hw.c ****  *============================================================================*/
+  45:tempsensor_hw.c **** /*----------------------------------------------------------------------------*
+  46:tempsensor_hw.c ****  *  NAME
+  47:tempsensor_hw.c ****  *      tempSensorReadyToRead
+  48:tempsensor_hw.c ****  *
+  49:tempsensor_hw.c ****  *  DESCRIPTION
+  50:tempsensor_hw.c ****  *      This function is called after a duration of temperature read delay,
+  51:tempsensor_hw.c ****  *      once a read is initiated.
+  52:tempsensor_hw.c ****  *
+  53:tempsensor_hw.c ****  *  RETURNS
+  54:tempsensor_hw.c ****  *      TRUE if initialization is sucessful.
+  55:tempsensor_hw.c ****  *
+  56:tempsensor_hw.c ****  *----------------------------------------------------------------------------*/
+  57:tempsensor_hw.c **** static void tempSensorReadyToRead(timer_id tid)
+  58:tempsensor_hw.c **** {
+  59:tempsensor_hw.c ****     int16 temp;
+  60:tempsensor_hw.c **** 
+  61:tempsensor_hw.c ****     if (tid == read_delay_tid)
+  62:tempsensor_hw.c ****     {
+  63:tempsensor_hw.c ****         read_delay_tid = TIMER_INVALID;
+  64:tempsensor_hw.c **** 
+  65:tempsensor_hw.c **** #ifdef TEMPERATURE_SENSOR_STTS751
+  66:tempsensor_hw.c ****         /* Read the temperature. */
+  67:tempsensor_hw.c ****         STTS751_ReadTemperature(&temp);
+  68:tempsensor_hw.c ****         if (temp != INVALID_TEMPERATURE)
+  69:tempsensor_hw.c ****         {
+  70:tempsensor_hw.c ****             /* Convert temperature in to 1/32 degree Centigrade units */
+  71:tempsensor_hw.c ****             temp = (temp << 1);
+  72:tempsensor_hw.c **** 
+  73:tempsensor_hw.c ****             temp += CELSIUS_TO_KELVIN_FACTOR;
+  74:tempsensor_hw.c ****         }
+  75:tempsensor_hw.c **** #endif /* TEMPERATURE_SENSOR_STTS751 */
+  76:tempsensor_hw.c **** 
+  77:tempsensor_hw.c ****         /* Report the temperature read. */
+  78:tempsensor_hw.c ****         eventHandler(temp);
+  79:tempsensor_hw.c ****     }
+  80:tempsensor_hw.c **** }
+  81:tempsensor_hw.c **** 
+  82:tempsensor_hw.c **** /*============================================================================*
+  83:tempsensor_hw.c ****  *  Public Function Implementations
+  84:tempsensor_hw.c ****  *============================================================================*/
+  85:tempsensor_hw.c **** 
+  86:tempsensor_hw.c **** /*----------------------------------------------------------------------------*
+  87:tempsensor_hw.c ****  *  NAME
+  88:tempsensor_hw.c ****  *      TempSensorHardwareInit
+  89:tempsensor_hw.c ****  *
+  90:tempsensor_hw.c ****  *  DESCRIPTION
+  91:tempsensor_hw.c ****  *      This function initialises the temperature sensor hardware.
+  92:tempsensor_hw.c ****  *
+  93:tempsensor_hw.c ****  *  RETURNS
+  94:tempsensor_hw.c ****  *      TRUE if initialization is sucessful.
+  95:tempsensor_hw.c ****  *
+  96:tempsensor_hw.c ****  *----------------------------------------------------------------------------*/
+  97:tempsensor_hw.c **** extern bool TempSensorHardwareInit(TEMPSENSOR_EVENT_HANDLER_T handler)
+  98:tempsensor_hw.c **** {
+  99:tempsensor_hw.c ****     bool status = FALSE;
+ 100:tempsensor_hw.c **** 
+ 101:tempsensor_hw.c ****     read_delay_tid = TIMER_INVALID;
+ 102:tempsensor_hw.c **** 
+ 103:tempsensor_hw.c ****     if (NULL != handler)
+ 104:tempsensor_hw.c ****     {
+ 105:tempsensor_hw.c ****         eventHandler = handler;
+ 106:tempsensor_hw.c ****         #ifdef TEMPERATURE_SENSOR_STTS751
+ 107:tempsensor_hw.c ****                 status = STTS751_Init();
+ 108:tempsensor_hw.c ****         #endif /* TEMPERATURE_SENSOR_STTS751 */
+ 109:tempsensor_hw.c ****     }
+ 110:tempsensor_hw.c **** 
+ 111:tempsensor_hw.c ****     return status;
+ 112:tempsensor_hw.c **** }
+ 113:tempsensor_hw.c **** 
+ 114:tempsensor_hw.c **** /*----------------------------------------------------------------------------*
+ 115:tempsensor_hw.c ****  *  NAME
+ 116:tempsensor_hw.c ****  *      TempSensorRead
+ 117:tempsensor_hw.c ****  *
+ 118:tempsensor_hw.c ****  *  DESCRIPTION
+ 119:tempsensor_hw.c ****  *      This function sends a temperature read command to the sensor.
+ 120:tempsensor_hw.c ****  *      Temperature will be reported in the registered event handler.
+ 121:tempsensor_hw.c ****  *
+ 122:tempsensor_hw.c ****  *  RETURNS
+ 123:tempsensor_hw.c ****  *      TRUE command is sent.
+ 124:tempsensor_hw.c ****  *
+ 125:tempsensor_hw.c ****  *----------------------------------------------------------------------------*/
+ 126:tempsensor_hw.c **** extern bool TempSensorRead(void)
+ 127:tempsensor_hw.c **** {
+  20                 	r	#0x0004
+  21 0000 04 0B       	.LCFI0:
+  22                 		.loc 1 132 0
+ 128:tempsensor_hw.c ****     bool status = FALSE;
+ 129:tempsensor_hw.c **** 
+ 130:tempsensor_hw.c ****     /* Return FALSE if already a read is in progress. */
+ 131:tempsensor_hw.c ****     if (TIMER_INVALID == read_delay_tid)
+  23                 	t	@read_delay_tid
+  24 0001 00 00 00 99 		beq	.L2
+  25 0003 00 00 00 00 		ld	AL,#0x0000
+  25      00 F4 
+  26 0006 00 14       		st	AL,@(0x0002,Y)
+  27 0007 02 27       	.LVL0:
+  28                 		bra	.L3
+  29 0008 00 00 00 00 	.LVL1:
+  29      00 E0 
+  30                 	.L2:
+  31                 		.loc 1 135 0
+ 132:tempsensor_hw.c ****     {
+ 133:tempsensor_hw.c **** #ifdef TEMPERATURE_SENSOR_STTS751
+ 134:tempsensor_hw.c ****         status = STTS751_InitiateOneShotRead();
+  32                 	751_InitiateOneShotRead
+  33 000b 00 00 00 00 		st	AL,@(0x0002,Y)
+  33      00 9C 
+  34 000e 02 27       	.LVL2:
+  35                 		.loc 1 140 0
+ 135:tempsensor_hw.c **** #endif /* TEMPERATURE_SENSOR_STTS751 */
+ 136:tempsensor_hw.c ****     }
+ 137:tempsensor_hw.c **** 
+ 138:tempsensor_hw.c ****     /* Command is issued without failure, start the delay timer. */
+ 139:tempsensor_hw.c ****     if (status)
+  36                 		.L3
+  37 000f 00 00 00 00 		.loc 1 142 0
+  37      00 F4 
+ 140:tempsensor_hw.c ****     {
+ 141:tempsensor_hw.c ****         read_delay_tid = TimerCreate(TEMP_READ_DELAY, TRUE,
+  38                 	d	AL,#0x0001
+  39 0012 01 14       		st	AL,@(0,Y)
+  40 0013 00 27       		ld	AL,#tempSensorReadyToRead
+  41 0014 00 00 00 14 		st	AL,@(0x0001,Y)
+  42 0016 01 27       		ld	AH,#0x0001
+  43 0017 01 10       		ld	AL,#0xb580
+  44 0018 B6 00 80 14 		bsr	TimerCreate
+  45 001a 00 00 00 00 		st	AL,@read_delay_tid
+  45      00 9C 
+  46 001d 00 00 00 25 	.L3:
+  47                 		.loc 1 147 0
+ 142:tempsensor_hw.c ****                                      tempSensorReadyToRead);
+ 143:tempsensor_hw.c ****     }
+ 144:tempsensor_hw.c **** 
+ 145:tempsensor_hw.c ****     return status;
+ 146:tempsensor_hw.c **** }
+  48                 	x0002,Y)
+  49 001f 02 17       		leave	#0x0004
+  50 0020 04 0F       	.LFE4:
+  51                 		.size	TempSensorRead, .-TempSensorRead
+  52                 		.global	__size_of_TempSensorRead
+  53                 		.equ	__size_of_TempSensorRead,. - TempSensorRead
+  54                 		.section	.text.tempSensorReadyToRead,"ax",@progbits
+  55                 		.type	tempSensorReadyToRead, @function
+  56                 	tempSensorReadyToRead:
+  57                 	.LFB2:
+  58                 		.loc 1 59 0
+  59:tempsensor_hw.c **** {
+  59                 	er	#0x0002
+  60                 	.LCFI1:
+  61 0000 02 0B       		.loc 1 62 0
+  62                 		cmp	AL,@read_delay_tid
+  62:tempsensor_hw.c ****     if (tid == read_delay_tid)
+  63                 		.L8
+  64 0001 00 00 00 85 		.loc 1 64 0
+  65 0003 00 00 00 00 		ld	AL,#0x0000
+  65      00 F0 
+  64:tempsensor_hw.c ****         read_delay_tid = TIMER_INVALID;
+  66                 	L4:
+  67 0006 00 14       		st	AL,@read_delay_tid
+  68                 		.loc 1 68 0
+  69 0007 00 00 00 25 		ld	AL,@$XAP_UY
+  68:tempsensor_hw.c ****         STTS751_ReadTemperature(&temp);
+  70                 		STTS751_ReadTemperature
+  71 0009 00 00 00 15 		.loc 1 69 0
+  72 000b 00 00 00 00 		ld	AL,@(0,Y)
+  72      00 9C 
+  69:tempsensor_hw.c ****         if (temp != INVALID_TEMPERATURE)
+  73                 	L5:
+  74 000e 00 17       		cmp	AL,#0xffff
+  75                 		beq	.L7
+  76 000f FF 84       		.loc 1 72 0
+  77 0010 00 00 00 00 		asl	#0x0001
+  77      00 F4 
+  72:tempsensor_hw.c ****             temp = (temp << 1);
+  78                 	 1 74 0
+  79 0013 01 A0       		add	AL,#0x2225
+  74:tempsensor_hw.c ****             temp += CELSIUS_TO_KELVIN_FACTOR;
+  80                 	VL6:
+  81 0014 22 00 25 34 		st	AL,@(0,Y)
+  82                 	.LVL7:
+  83 0016 00 27       	.L7:
+  84                 		.loc 1 79 0
+  85                 		ld	AL,@(0,Y)
+  79:tempsensor_hw.c ****         eventHandler(temp);
+  86                 	eventHandler
+  87 0017 00 17       	.LVL8:
+  88 0018 00 00 00 9D 	.L8:
+  89                 		.loc 1 81 0
+  90                 		leave	#0x0002
+  81:tempsensor_hw.c **** }
+  91                 	:
+  92 001a 02 0F       		.size	tempSensorReadyToRead, .-tempSensorReadyToRead
+  93                 		.equ	__size_of_tempSensorReadyToRead,. - tempSensorReadyToRead
+  94                 		.section	.text.TempSensorHardwareInit,"ax",@progbits
+  95                 		.global	TempSensorHardwareInit
+  96                 		.type	TempSensorHardwareInit, @function
+  97                 	TempSensorHardwareInit:
+  98                 	.LFB3:
+  99                 		.loc 1 99 0
+ 100                 	.LVL9:
+  99:tempsensor_hw.c **** {
+ 101                 	0001
+ 102                 	.LCFI2:
+ 103 0000 01 0B       		.loc 1 102 0
+ 104                 		ld	X,#0x0000
+ 102:tempsensor_hw.c ****     read_delay_tid = TIMER_INVALID;
+ 105                 	X,@read_delay_tid
+ 106 0001 00 18       		.loc 1 104 0
+ 107 0002 00 00 00 29 		tst	@$XAP_AL
+ 104:tempsensor_hw.c ****     if (NULL != handler)
+ 108                 	e	.L10
+ 109 0004 00 00 00 99 		.loc 1 113 0
+ 110 0006 00 00 00 00 		leave	#0x0001
+ 110      00 F0 
+ 113:tempsensor_hw.c **** }
+ 111                 	0:
+ 112 0009 01 0F       		.loc 1 106 0
+ 113                 		st	AL,@eventHandler
+ 106:tempsensor_hw.c ****         eventHandler = handler;
+ 114                 	oc 1 113 0
+ 115 000a 00 00 00 25 		ld	X,@(0x0000,Y)
+ 113:tempsensor_hw.c **** }
+ 116                 		add	Y,#0x0001
+ 117 000c 00 1B       		.loc 1 108 0
+ 118 000d 01 3C       		bra	STTS751_Init
+ 108:tempsensor_hw.c ****                 status = STTS751_Init();
+ 119                 	0:
+ 120 000e 00 00 00 00 	.LFE3:
+ 120      00 E0 
+ 121                 		.size	TempSensorHardwareInit, .-TempSensorHardwareInit
+ 122                 		.global	__size_of_TempSensorHardwareInit
+ 123                 		.equ	__size_of_TempSensorHardwareInit,. - TempSensorHardwareInit
+ 124                 		.section	.bss.read_delay_tid,"aw",@nobits
+ 125                 		.type	read_delay_tid, @object
+ 126                 		.size	read_delay_tid, 1
+ 127                 	read_delay_tid:
+ 128                 		.space	1
+ 129                 		.section	.bss.eventHandler,"aw",@nobits
+ 130 0000 00 00       		.type	eventHandler, @object
+ 131                 		.size	eventHandler, 1
+ 132                 	eventHandler:
+ 133                 		.space	1
+ 134                 		.section	.debug_frame,"",@progbits
+ 135 0000 00 00       	.Lframe0:
+ 136                 		.4byte	.LECIE0-.LSCIE0
+ 137                 	.LSCIE0:
+ 138 0000 00 00 00 00 		.4byte	0xffffffff
+ 139                 		.1byte	0x1
+ 140 0002 FF FF FF FF 		.ascii "\000"
+ 141 0004 01          		.1byte	0x1
+ 142 0004 00          		.1byte	0x7f
+ 143 0005 01          		.1byte	0x3
+ 144 0005 7F          		.1byte	0xc
+ 145 0006 03          		.1byte	0x5
+ 146 0006 0C          		.1byte	0x0
+ 147 0007 05          		.p2align	2
+ 148 0007 00          	.LECIE0:
+ 149                 	.LSFDE0:
+ 150                 		.4byte	.LEFDE0-.LASFDE0
+ 151                 	.LASFDE0:
+ 152 0008 00 00 00 00 		.4byte	.Lframe0
+ 153                 		.4byte	.LFB4
+ 154 000a 00 00 00 00 		.4byte	.LFE4-.LFB4
+ 155 000c 00 00 00 00 		.1byte	0x4
+ 156 000e 00 00 00 00 		.4byte	.LCFI0-.LFB4
+ 157 0010 41          		.1byte	0xe
+ 158                 		.1byte	0x4
+ 159 0010 0E          		.1byte	0x83
+ 160 0011 04          		.1byte	0x1
+ 161 0011 83          		.p2align	2
+ 162 0012 01          	.LEFDE0:
+ 163 0012 00 00 00    	.LSFDE2:
+ 164                 		.4byte	.LEFDE2-.LASFDE2
+ 165                 	.LASFDE2:
+ 166 0014 00 00 00 00 		.4byte	.Lframe0
+ 167                 		.4byte	.LFB2
+ 168 0016 00 00 00 00 		.4byte	.LFE2-.LFB2
+ 169 0018 00 00 00 00 		.1byte	0x4
+ 170 001a 00 00 00 00 		.4byte	.LCFI1-.LFB2
+ 171 001c 41          		.1byte	0xe
+ 172                 		.1byte	0x2
+ 173 001c 0E          		.1byte	0x83
+ 174 001d 02          		.1byte	0x1
+ 175 001d 83          		.p2align	2
+ 176 001e 01          	.LEFDE2:
+ 177 001e 00 00 00    	.LSFDE4:
+ 178                 		.4byte	.LEFDE4-.LASFDE4
+ 179                 	.LASFDE4:
+ 180 0020 00 00 00 00 		.4byte	.Lframe0
+ 181                 		.4byte	.LFB3
+ 182 0022 00 00 00 00 		.4byte	.LFE3-.LFB3
+ 183 0024 00 00 00 00 		.1byte	0x4
+ 184 0026 00 00 00 00 		.4byte	.LCFI2-.LFB3
+ 185 0028 41          		.1byte	0xe
+ 186                 		.1byte	0x1
+ 187 0028 0E          		.1byte	0x83
+ 188 0029 01          		.1byte	0x1
+ 189 0029 83          		.p2align	2
+ 190 002a 01          	.LEFDE4:
+ 191 002a 00 00 00    		.text
+ 192                 	.Letext0:
+ 193                 		.section	.debug_loc,"",@progbits
+ 194                 	.Ldebug_loc0:
+ 195                 	.LLST0:
+ 196                 		.4byte	.LFB4
+ 197                 		.4byte	.LCFI0
+ 198 0000 00 00 00 00 		.2byte	0x1
+ 199 0002 00 00 00 00 		.1byte	0x55
+ 200 0004 00 01       		.4byte	.LCFI0
+ 201 0005 55          		.4byte	.LFE4
+ 202 0005 00 00 00 00 		.2byte	0x2
+ 203 0007 00 00 00 00 		.1byte	0x75
+ 204 0009 00 02       		.1byte	0x4
+ 205 000a 75          		.4byte	0x0
+ 206 000b 04          		.4byte	0x0
+ 207 000b 00 00 00 00 	.LLST1:
+ 208 000d 00 00 00 00 		.4byte	.LVL0
+ 209                 		.4byte	.LVL1
+ 210 000f 00 00 00 00 		.2byte	0x2
+ 211 0011 00 00 00 00 		.1byte	0x76
+ 212 0013 00 02       		.1byte	0x2
+ 213 0014 76          		.4byte	.LVL2
+ 214 0015 02          		.4byte	.LFE4
+ 215 0015 00 00 00 00 		.2byte	0x2
+ 216 0017 00 00 00 00 		.1byte	0x76
+ 217 0019 00 02       		.1byte	0x2
+ 218 001a 76          		.4byte	0x0
+ 219 001b 02          		.4byte	0x0
+ 220 001b 00 00 00 00 	.LLST2:
+ 221 001d 00 00 00 00 		.4byte	.LFB2
+ 222                 		.4byte	.LCFI1
+ 223 001f 00 00 00 00 		.2byte	0x1
+ 224 0021 00 00 00 00 		.1byte	0x55
+ 225 0023 00 01       		.4byte	.LCFI1
+ 226 0024 55          		.4byte	.LFE2
+ 227 0025 00 00 00 00 		.2byte	0x2
+ 228 0027 00 00 00 00 		.1byte	0x75
+ 229 0029 00 02       		.1byte	0x2
+ 230 002a 75          		.4byte	0x0
+ 231 002a 02          		.4byte	0x0
+ 232 002b 00 00 00 00 	.LLST3:
+ 233 002d 00 00 00 00 		.4byte	.LVL3
+ 234                 		.4byte	.LVL4
+ 235 002f 00 00 00 00 		.2byte	0x1
+ 236 0031 00 00 00 00 		.1byte	0x51
+ 237 0033 00 01       		.4byte	.LVL8
+ 238 0034 51          		.4byte	.LFE2
+ 239 0034 00 00 00 00 		.2byte	0x1
+ 240 0036 00 00 00 00 		.1byte	0x51
+ 241 0038 00 01       		.4byte	0x0
+ 242 0039 51          		.4byte	0x0
+ 243 003a 00 00 00 00 	.LLST4:
+ 244 003c 00 00 00 00 		.4byte	.LVL5
+ 245                 		.4byte	.LVL6
+ 246 003e 00 00 00 00 		.2byte	0x2
+ 247 0040 00 00 00 00 		.1byte	0x76
+ 248 0042 00 02       		.1byte	0x0
+ 249 0043 76          		.4byte	.LVL6
+ 250 0043 00          		.4byte	.LVL7
+ 251 0044 00 00 00 00 		.2byte	0x1
+ 252 0046 00 00 00 00 		.1byte	0x51
+ 253 0048 00 01       		.4byte	.LVL7
+ 254 0049 51          		.4byte	.LFE2
+ 255 0049 00 00 00 00 		.2byte	0x2
+ 256 004b 00 00 00 00 		.1byte	0x76
+ 257 004d 00 02       		.1byte	0x0
+ 258 004e 76          		.4byte	0x0
+ 259 004f 00          		.4byte	0x0
+ 260 004f 00 00 00 00 	.LLST5:
+ 261 0051 00 00 00 00 		.4byte	.LFB3
+ 262                 		.4byte	.LCFI2
+ 263 0053 00 00 00 00 		.2byte	0x1
+ 264 0055 00 00 00 00 		.1byte	0x55
+ 265 0057 00 01       		.4byte	.LCFI2
+ 266 0058 55          		.4byte	.LFE3
+ 267 0059 00 00 00 00 		.2byte	0x2
+ 268 005b 00 00 00 00 		.1byte	0x75
+ 269 005d 00 02       		.1byte	0x1
+ 270 005e 75          		.4byte	0x0
+ 271 005e 01          		.4byte	0x0
+ 272 005f 00 00 00 00 	.LLST6:
+ 273 0061 00 00 00 00 		.4byte	.LVL9
+ 274                 		.4byte	.LVL10
+ 275 0063 00 00 00 00 		.2byte	0x1
+ 276 0065 00 00 00 00 		.1byte	0x51
+ 277 0067 00 01       		.4byte	0x0
+ 278 0068 51          		.4byte	0x0
+ 279 0068 00 00 00 00 		.file 2 "C:/CSR_uEnergy_SDK-2.4.5.13/tools/include/CSR101x_A05/types.h"
+ 280 006a 00 00 00 00 		.file 3 "C:/CSR_uEnergy_SDK-2.4.5.13/tools/include/CSR101x_A05/timer.h"
+ 281                 		.file 4 "tempsensor_hw.h"
+ 282                 		.section	.debug_info
+ 283                 		.4byte	0x161
+ 284                 		.2byte	0x2
+ 285 0000 00 00 01 61 		.4byte	.Ldebug_abbrev0
+ 286 0002 00 02       		.1byte	0x4
+ 287 0003 00 00 00 00 		.1byte	0x1
+ 288 0005 04          		.4byte	.LASF19
+ 289 0005 01          		.1byte	0x1
+ 290 0006 00 00 00 00 		.4byte	.LASF20
+ 291 0008 01          		.4byte	.LASF21
+ 292 0008 00 00 00 00 		.4byte	0x0
+ 293 000a 00 00 00 00 		.4byte	0x0
+ 294 000c 00 00 00 00 		.4byte	.Ldebug_ranges0+0x0
+ 295 000e 00 00 00 00 		.4byte	.Ldebug_line0
+ 296 0010 00 00 00 00 		.1byte	0x2
+ 297 0012 00 00 00 00 		.1byte	0x2
+ 298 0014 02          		.1byte	0x8
+ 299 0015 02          		.4byte	.LASF0
+ 300 0015 08          		.1byte	0x3
+ 301 0016 00 00 00 00 		.4byte	.LASF4
+ 302 0018 03          		.1byte	0x2
+ 303 0018 00 00 00 00 		.1byte	0x1f
+ 304 001a 02          		.4byte	0x3b
+ 305 001b 1F          		.1byte	0x2
+ 306 001b 00 00 00 3B 		.1byte	0x2
+ 307 001d 02          		.1byte	0x7
+ 308 001e 02          		.4byte	.LASF1
+ 309 001e 07          		.1byte	0x2
+ 310 001f 00 00 00 00 		.1byte	0x4
+ 311 0021 02          		.1byte	0x7
+ 312 0021 04          		.4byte	.LASF2
+ 313 0022 07          		.1byte	0x2
+ 314 0022 00 00 00 00 		.1byte	0x2
+ 315 0024 02          		.1byte	0x6
+ 316 0025 02          		.4byte	.LASF3
+ 317 0025 06          		.1byte	0x3
+ 318 0026 00 00 00 00 		.4byte	.LASF5
+ 319 0028 03          		.1byte	0x2
+ 320 0028 00 00 00 00 		.1byte	0x24
+ 321 002a 02          		.4byte	0x5b
+ 322 002b 24          		.1byte	0x2
+ 323 002b 00 00 00 5B 		.1byte	0x2
+ 324 002d 02          		.1byte	0x5
+ 325 002e 02          		.4byte	.LASF6
+ 326 002e 05          		.1byte	0x2
+ 327 002f 00 00 00 00 		.1byte	0x4
+ 328 0031 02          		.1byte	0x5
+ 329 0031 04          		.4byte	.LASF7
+ 330 0032 05          		.1byte	0x3
+ 331 0032 00 00 00 00 		.4byte	.LASF8
+ 332 0034 03          		.1byte	0x2
+ 333 0035 00 00 00 00 		.1byte	0x2a
+ 334 0037 02          		.4byte	0x74
+ 335 0037 2A          		.1byte	0x2
+ 336 0038 00 00 00 74 		.1byte	0x2
+ 337 003a 02          		.1byte	0x7
+ 338 003a 02          		.4byte	.LASF9
+ 339 003b 07          		.1byte	0x4
+ 340 003b 00 00 00 00 		.1byte	0x2
+ 341 003d 04          		.1byte	0x7
+ 342 003e 02          		.1byte	0x3
+ 343 003e 07          		.4byte	.LASF10
+ 344 003f 03          		.1byte	0x3
+ 345 003f 00 00 00 00 		.1byte	0x1f
+ 346 0041 03          		.4byte	0x30
+ 347 0042 1F          		.1byte	0x3
+ 348 0042 00 00 00 30 		.4byte	.LASF11
+ 349 0044 03          		.1byte	0x4
+ 350 0045 00 00 00 00 		.1byte	0x23
+ 351 0047 04          		.4byte	0x94
+ 352 0047 23          		.1byte	0x5
+ 353 0048 00 00 00 94 		.1byte	0x2
+ 354 004a 05          		.4byte	0x9a
+ 355 004a 02          		.1byte	0x6
+ 356 004b 00 00 00 9A 		.1byte	0x1
+ 357 004d 06          		.4byte	0xa6
+ 358 004d 01          		.1byte	0x7
+ 359 004e 00 00 00 A6 		.4byte	0x50
+ 360 0050 07          		.1byte	0x0
+ 361 0050 00 00 00 50 		.1byte	0x8
+ 362 0052 00          		.1byte	0x1
+ 363 0053 08          		.4byte	.LASF14
+ 364 0053 01          		.1byte	0x1
+ 365 0054 00 00 00 00 		.1byte	0x80
+ 366 0056 01          		.1byte	0x1
+ 367 0056 80          		.4byte	0x69
+ 368 0057 01          		.4byte	.LFB4
+ 369 0057 00 00 00 69 		.4byte	.LFE4
+ 370 0059 00 00 00 00 		.4byte	.LLST0
+ 371 005b 00 00 00 00 		.4byte	0xd3
+ 372 005d 00 00 00 00 		.1byte	0x9
+ 373 005f 00 00 00 D3 		.4byte	.LASF12
+ 374 0061 09          		.1byte	0x1
+ 375 0062 00 00 00 00 		.1byte	0x81
+ 376 0064 01          		.4byte	0x69
+ 377 0064 81          		.4byte	.LLST1
+ 378 0065 00 00 00 69 		.1byte	0x0
+ 379 0067 00 00 00 00 		.1byte	0xa
+ 380 0069 00          		.4byte	.LASF22
+ 381 0069 0A          		.1byte	0x1
+ 382 006a 00 00 00 00 		.1byte	0x3b
+ 383 006c 01          		.1byte	0x1
+ 384 006c 3B          		.4byte	.LFB2
+ 385 006d 01          		.4byte	.LFE2
+ 386 006d 00 00 00 00 		.4byte	.LLST2
+ 387 006f 00 00 00 00 		.4byte	0x10a
+ 388 0071 00 00 00 00 		.1byte	0xb
+ 389 0073 00 00 01 0A 		.ascii "tid\000"
+ 390 0075 0B          		.1byte	0x1
+ 391 0076 74 69 64 00 		.1byte	0x3a
+ 392 0078 01          		.4byte	0x7e
+ 393 0078 3A          		.4byte	.LLST3
+ 394 0079 00 00 00 7E 		.1byte	0x9
+ 395 007b 00 00 00 00 		.4byte	.LASF13
+ 396 007d 09          		.1byte	0x1
+ 397 007d 00 00 00 00 		.1byte	0x3c
+ 398 007f 01          		.4byte	0x50
+ 399 0080 3C          		.4byte	.LLST4
+ 400 0080 00 00 00 50 		.1byte	0x0
+ 401 0082 00 00 00 00 		.1byte	0x8
+ 402 0084 00          		.1byte	0x1
+ 403 0085 08          		.4byte	.LASF15
+ 404 0085 01          		.1byte	0x1
+ 405 0086 00 00 00 00 		.1byte	0x63
+ 406 0088 01          		.1byte	0x1
+ 407 0088 63          		.4byte	0x69
+ 408 0089 01          		.4byte	.LFB3
+ 409 0089 00 00 00 69 		.4byte	.LFE3
+ 410 008b 00 00 00 00 		.4byte	.LLST5
+ 411 008d 00 00 00 00 		.4byte	0x142
+ 412 008f 00 00 00 00 		.1byte	0xc
+ 413 0091 00 00 01 42 		.4byte	.LASF16
+ 414 0093 0C          		.1byte	0x1
+ 415 0094 00 00 00 00 		.1byte	0x62
+ 416 0096 01          		.4byte	0x89
+ 417 0096 62          		.4byte	.LLST6
+ 418 0097 00 00 00 89 		.1byte	0xd
+ 419 0099 00 00 00 00 		.4byte	.LASF12
+ 420 009b 0D          		.1byte	0x1
+ 421 009b 00 00 00 00 		.1byte	0x64
+ 422 009d 01          		.4byte	0x69
+ 423 009e 64          		.1byte	0x0
+ 424 009e 00 00 00 69 		.1byte	0xe
+ 425 00a0 00          		.4byte	.LASF17
+ 426 00a1 0E          		.1byte	0x1
+ 427 00a1 00 00 00 00 		.1byte	0x26
+ 428 00a3 01          		.4byte	0x89
+ 429 00a4 26          		.1byte	0x5
+ 430 00a4 00 00 00 89 		.1byte	0x3
+ 431 00a6 05          		.4byte	eventHandler
+ 432 00a7 03          		.1byte	0xe
+ 433 00a7 00 00 00 00 		.4byte	.LASF18
+ 434 00a9 0E          		.1byte	0x1
+ 435 00aa 00 00 00 00 		.1byte	0x29
+ 436 00ac 01          		.4byte	0x7e
+ 437 00ac 29          		.1byte	0x5
+ 438 00ad 00 00 00 7E 		.1byte	0x3
+ 439 00af 05          		.4byte	read_delay_tid
+ 440 00af 03          		.1byte	0x0
+ 441 00b0 00 00 00 00 		.section	.debug_abbrev
+ 442 00b2 00          		.1byte	0x1
+ 443                 		.1byte	0x11
+ 444 0000 01          		.1byte	0x1
+ 445 0000 11          		.1byte	0x25
+ 446 0001 01          		.1byte	0xe
+ 447 0001 25          		.1byte	0x13
+ 448 0002 0E          		.1byte	0xb
+ 449 0002 13          		.1byte	0x3
+ 450 0003 0B          		.1byte	0xe
+ 451 0003 03          		.1byte	0x1b
+ 452 0004 0E          		.1byte	0xe
+ 453 0004 1B          		.1byte	0x11
+ 454 0005 0E          		.1byte	0x1
+ 455 0005 11          		.1byte	0x52
+ 456 0006 01          		.1byte	0x1
+ 457 0006 52          		.1byte	0x55
+ 458 0007 01          		.1byte	0x6
+ 459 0007 55          		.1byte	0x10
+ 460 0008 06          		.1byte	0x6
+ 461 0008 10          		.1byte	0x0
+ 462 0009 06          		.1byte	0x0
+ 463 0009 00          		.1byte	0x2
+ 464 000a 00          		.1byte	0x24
+ 465 000a 02          		.1byte	0x0
+ 466 000b 24          		.1byte	0xb
+ 467 000b 00          		.1byte	0xb
+ 468 000c 0B          		.1byte	0x3e
+ 469 000c 0B          		.1byte	0xb
+ 470 000d 3E          		.1byte	0x3
+ 471 000d 0B          		.1byte	0xe
+ 472 000e 03          		.1byte	0x0
+ 473 000e 0E          		.1byte	0x0
+ 474 000f 00          		.1byte	0x3
+ 475 000f 00          		.1byte	0x16
+ 476 0010 03          		.1byte	0x0
+ 477 0010 16          		.1byte	0x3
+ 478 0011 00          		.1byte	0xe
+ 479 0011 03          		.1byte	0x3a
+ 480 0012 0E          		.1byte	0xb
+ 481 0012 3A          		.1byte	0x3b
+ 482 0013 0B          		.1byte	0xb
+ 483 0013 3B          		.1byte	0x49
+ 484 0014 0B          		.1byte	0x13
+ 485 0014 49          		.1byte	0x0
+ 486 0015 13          		.1byte	0x0
+ 487 0015 00          		.1byte	0x4
+ 488 0016 00          		.1byte	0x24
+ 489 0016 04          		.1byte	0x0
+ 490 0017 24          		.1byte	0xb
+ 491 0017 00          		.1byte	0xb
+ 492 0018 0B          		.1byte	0x3e
+ 493 0018 0B          		.1byte	0xb
+ 494 0019 3E          		.1byte	0x0
+ 495 0019 0B          		.1byte	0x0
+ 496 001a 00          		.1byte	0x5
+ 497 001a 00          		.1byte	0xf
+ 498 001b 05          		.1byte	0x0
+ 499 001b 0F          		.1byte	0xb
+ 500 001c 00          		.1byte	0xb
+ 501 001c 0B          		.1byte	0x49
+ 502 001d 0B          		.1byte	0x13
+ 503 001d 49          		.1byte	0x0
+ 504 001e 13          		.1byte	0x0
+ 505 001e 00          		.1byte	0x6
+ 506 001f 00          		.1byte	0x15
+ 507 001f 06          		.1byte	0x1
+ 508 0020 15          		.1byte	0x27
+ 509 0020 01          		.1byte	0xc
+ 510 0021 27          		.1byte	0x1
+ 511 0021 0C          		.1byte	0x13
+ 512 0022 01          		.1byte	0x0
+ 513 0022 13          		.1byte	0x0
+ 514 0023 00          		.1byte	0x7
+ 515 0023 00          		.1byte	0x5
+ 516 0024 07          		.1byte	0x0
+ 517 0024 05          		.1byte	0x49
+ 518 0025 00          		.1byte	0x13
+ 519 0025 49          		.1byte	0x0
+ 520 0026 13          		.1byte	0x0
+ 521 0026 00          		.1byte	0x8
+ 522 0027 00          		.1byte	0x2e
+ 523 0027 08          		.1byte	0x1
+ 524 0028 2E          		.1byte	0x3f
+ 525 0028 01          		.1byte	0xc
+ 526 0029 3F          		.1byte	0x3
+ 527 0029 0C          		.1byte	0xe
+ 528 002a 03          		.1byte	0x3a
+ 529 002a 0E          		.1byte	0xb
+ 530 002b 3A          		.1byte	0x3b
+ 531 002b 0B          		.1byte	0xb
+ 532 002c 3B          		.1byte	0x27
+ 533 002c 0B          		.1byte	0xc
+ 534 002d 27          		.1byte	0x49
+ 535 002d 0C          		.1byte	0x13
+ 536 002e 49          		.1byte	0x11
+ 537 002e 13          		.1byte	0x1
+ 538 002f 11          		.1byte	0x12
+ 539 002f 01          		.1byte	0x1
+ 540 0030 12          		.1byte	0x40
+ 541 0030 01          		.1byte	0x6
+ 542 0031 40          		.1byte	0x1
+ 543 0031 06          		.1byte	0x13
+ 544 0032 01          		.1byte	0x0
+ 545 0032 13          		.1byte	0x0
+ 546 0033 00          		.1byte	0x9
+ 547 0033 00          		.1byte	0x34
+ 548 0034 09          		.1byte	0x0
+ 549 0034 34          		.1byte	0x3
+ 550 0035 00          		.1byte	0xe
+ 551 0035 03          		.1byte	0x3a
+ 552 0036 0E          		.1byte	0xb
+ 553 0036 3A          		.1byte	0x3b
+ 554 0037 0B          		.1byte	0xb
+ 555 0037 3B          		.1byte	0x49
+ 556 0038 0B          		.1byte	0x13
+ 557 0038 49          		.1byte	0x2
+ 558 0039 13          		.1byte	0x6
+ 559 0039 02          		.1byte	0x0
+ 560 003a 06          		.1byte	0x0
+ 561 003a 00          		.1byte	0xa
+ 562 003b 00          		.1byte	0x2e
+ 563 003b 0A          		.1byte	0x1
+ 564 003c 2E          		.1byte	0x3
+ 565 003c 01          		.1byte	0xe
+ 566 003d 03          		.1byte	0x3a
+ 567 003d 0E          		.1byte	0xb
+ 568 003e 3A          		.1byte	0x3b
+ 569 003e 0B          		.1byte	0xb
+ 570 003f 3B          		.1byte	0x27
+ 571 003f 0B          		.1byte	0xc
+ 572 0040 27          		.1byte	0x11
+ 573 0040 0C          		.1byte	0x1
+ 574 0041 11          		.1byte	0x12
+ 575 0041 01          		.1byte	0x1
+ 576 0042 12          		.1byte	0x40
+ 577 0042 01          		.1byte	0x6
+ 578 0043 40          		.1byte	0x1
+ 579 0043 06          		.1byte	0x13
+ 580 0044 01          		.1byte	0x0
+ 581 0044 13          		.1byte	0x0
+ 582 0045 00          		.1byte	0xb
+ 583 0045 00          		.1byte	0x5
+ 584 0046 0B          		.1byte	0x0
+ 585 0046 05          		.1byte	0x3
+ 586 0047 00          		.1byte	0x8
+ 587 0047 03          		.1byte	0x3a
+ 588 0048 08          		.1byte	0xb
+ 589 0048 3A          		.1byte	0x3b
+ 590 0049 0B          		.1byte	0xb
+ 591 0049 3B          		.1byte	0x49
+ 592 004a 0B          		.1byte	0x13
+ 593 004a 49          		.1byte	0x2
+ 594 004b 13          		.1byte	0x6
+ 595 004b 02          		.1byte	0x0
+ 596 004c 06          		.1byte	0x0
+ 597 004c 00          		.1byte	0xc
+ 598 004d 00          		.1byte	0x5
+ 599 004d 0C          		.1byte	0x0
+ 600 004e 05          		.1byte	0x3
+ 601 004e 00          		.1byte	0xe
+ 602 004f 03          		.1byte	0x3a
+ 603 004f 0E          		.1byte	0xb
+ 604 0050 3A          		.1byte	0x3b
+ 605 0050 0B          		.1byte	0xb
+ 606 0051 3B          		.1byte	0x49
+ 607 0051 0B          		.1byte	0x13
+ 608 0052 49          		.1byte	0x2
+ 609 0052 13          		.1byte	0x6
+ 610 0053 02          		.1byte	0x0
+ 611 0053 06          		.1byte	0x0
+ 612 0054 00          		.1byte	0xd
+ 613 0054 00          		.1byte	0x34
+ 614 0055 0D          		.1byte	0x0
+ 615 0055 34          		.1byte	0x3
+ 616 0056 00          		.1byte	0xe
+ 617 0056 03          		.1byte	0x3a
+ 618 0057 0E          		.1byte	0xb
+ 619 0057 3A          		.1byte	0x3b
+ 620 0058 0B          		.1byte	0xb
+ 621 0058 3B          		.1byte	0x49
+ 622 0059 0B          		.1byte	0x13
+ 623 0059 49          		.1byte	0x0
+ 624 005a 13          		.1byte	0x0
+ 625 005a 00          		.1byte	0xe
+ 626 005b 00          		.1byte	0x34
+ 627 005b 0E          		.1byte	0x0
+ 628 005c 34          		.1byte	0x3
+ 629 005c 00          		.1byte	0xe
+ 630 005d 03          		.1byte	0x3a
+ 631 005d 0E          		.1byte	0xb
+ 632 005e 3A          		.1byte	0x3b
+ 633 005e 0B          		.1byte	0xb
+ 634 005f 3B          		.1byte	0x49
+ 635 005f 0B          		.1byte	0x13
+ 636 0060 49          		.1byte	0x2
+ 637 0060 13          		.1byte	0xa
+ 638 0061 02          		.1byte	0x0
+ 639 0061 0A          		.1byte	0x0
+ 640 0062 00          		.1byte	0x0
+ 641 0062 00          		.section	.debug_pubnames,"",@progbits
+ 642 0063 00          		.4byte	0x3c
+ 643                 		.2byte	0x2
+ 644 0000 00 00 00 3C 		.4byte	.Ldebug_info0
+ 645 0002 00 02       		.4byte	0x165
+ 646 0003 00 00 00 00 		.4byte	0xa6
+ 647 0005 00 00 01 65 		.ascii "TempSensorRead\000"
+ 648 0007 00 00 00 A6 		.4byte	0x10a
+ 649 0009 54 65 6D 70 		.ascii "TempSensorHardwareInit\000"
+ 649      53 65 6E 73 
+ 649      6F 72 52 65 
+ 649      61 64 00 
+ 650 0010 00 00 01 0A 		.4byte	0x0
+ 651 0012 54 65 6D 70 		.section	.debug_aranges,"",@progbits
+ 651      53 65 6E 73 
+ 651      6F 72 48 61 
+ 651      72 64 77 61 
+ 651      72 65 49 6E 
+ 652 001e 00 00 00 00 		.4byte	0x2c
+ 653                 		.2byte	0x2
+ 654 0000 00 00 00 2C 		.4byte	.Ldebug_info0
+ 655 0002 00 02       		.1byte	0x4
+ 656 0003 00 00 00 00 		.1byte	0x0
+ 657 0005 04          		.2byte	0x0
+ 658 0005 00          		.2byte	0x0
+ 659 0006 00 00       		.4byte	.LFB4
+ 660 0007 00 00       		.4byte	.LFE4-.LFB4
+ 661 0008 00 00 00 00 		.4byte	.LFB2
+ 662 000a 00 00 00 00 		.4byte	.LFE2-.LFB2
+ 663 000c 00 00 00 00 		.4byte	.LFB3
+ 664 000e 00 00 00 00 		.4byte	.LFE3-.LFB3
+ 665 0010 00 00 00 00 		.4byte	0x0
+ 666 0012 00 00 00 00 		.4byte	0x0
+ 667 0014 00 00 00 00 		.section	.debug_ranges,"",@progbits
+ 668 0016 00 00 00 00 	.Ldebug_ranges0:
+ 669                 		.4byte	.Ltext0
+ 670                 		.4byte	.Letext0
+ 671 0000 00 00 00 00 		.4byte	.LFB4
+ 672 0002 00 00 00 00 		.4byte	.LFE4
+ 673 0004 00 00 00 00 		.4byte	.LFB2
+ 674 0006 00 00 00 00 		.4byte	.LFE2
+ 675 0008 00 00 00 00 		.4byte	.LFB3
+ 676 000a 00 00 00 00 		.4byte	.LFE3
+ 677 000c 00 00 00 00 		.4byte	0x0
+ 678 000e 00 00 00 00 		.4byte	0x0
+ 679 0010 00 00 00 00 		.section	.debug_str,"MS",@progbits,1
+ 680 0012 00 00 00 00 	.LASF1:
+ 681                 		.ascii "short unsigned int\000"
+ 682                 	.LASF16:
+ 683 0000 73 68 6F 72 		.ascii "handler\000"
+ 683      74 20 75 6E 
+ 683      73 69 67 6E 
+ 683      65 64 20 69 
+ 683      6E 74 00 
+ 684                 	.LASF10:
+ 685 0009 68 61 6E 64 		.ascii "timer_id\000"
+ 685      6C 65 72 00 
+ 686                 	.LASF11:
+ 687 000d 74 69 6D 65 		.ascii "TEMPSENSOR_EVENT_HANDLER_T\000"
+ 687      72 5F 69 64 
+ 687      00 
+ 688                 	.LASF21:
+ 689 0012 54 45 4D 50 		.ascii "C:\\CSR_uEnergy_SDK-2.4.5.13\\apps\\CSRmesh-1.3-Examples-Applications_icp\\applications\\W
+ 689      53 45 4E 53 
+ 689      4F 52 5F 45 
+ 689      56 45 4E 54 
+ 689      5F 48 41 4E 
+ 690                 	.LASF17:
+ 691 001f 43 3A 5C 43 		.ascii "eventHandler\000"
+ 691      53 52 5F 75 
+ 691      45 6E 65 72 
+ 691      67 79 5F 53 
+ 691      44 4B 2D 32 
+ 692                 	.LASF12:
+ 693 0056 65 76 65 6E 		.ascii "status\000"
+ 693      74 48 61 6E 
+ 693      64 6C 65 72 
+ 693      00 
+ 694                 	.LASF2:
+ 695 005c 73 74 61 74 		.ascii "long unsigned int\000"
+ 695      75 73 00 
+ 696                 	.LASF15:
+ 697 0060 6C 6F 6E 67 		.ascii "TempSensorHardwareInit\000"
+ 697      20 75 6E 73 
+ 697      69 67 6E 65 
+ 697      64 20 69 6E 
+ 697      74 00 
+ 698                 	.LASF8:
+ 699 0069 54 65 6D 70 		.ascii "bool\000"
+ 699      53 65 6E 73 
+ 699      6F 72 48 61 
+ 699      72 64 77 61 
+ 699      72 65 49 6E 
+ 700                 	.LASF0:
+ 701 0074 62 6F 6F 6C 		.ascii "unsigned char\000"
+ 701      00 
+ 702                 	.LASF14:
+ 703 0077 75 6E 73 69 		.ascii "TempSensorRead\000"
+ 703      67 6E 65 64 
+ 703      20 63 68 61 
+ 703      72 00 
+ 704                 	.LASF7:
+ 705 007e 54 65 6D 70 		.ascii "long int\000"
+ 705      53 65 6E 73 
+ 705      6F 72 52 65 
+ 705      61 64 00 
+ 706                 	.LASF13:
+ 707 0085 6C 6F 6E 67 		.ascii "temp\000"
+ 707      20 69 6E 74 
+ 707      00 
+ 708                 	.LASF4:
+ 709 008a 74 65 6D 70 		.ascii "uint16\000"
+ 709      00 
+ 710                 	.LASF20:
+ 711 008c 75 69 6E 74 		.ascii "tempsensor_hw.c\000"
+ 711      31 36 00 
+ 712                 	.LASF22:
+ 713 0090 74 65 6D 70 		.ascii "tempSensorReadyToRead\000"
+ 713      73 65 6E 73 
+ 713      6F 72 5F 68 
+ 713      77 2E 63 00 
+ 714                 	.LASF5:
+ 715 0098 74 65 6D 70 		.ascii "int16\000"
+ 715      53 65 6E 73 
+ 715      6F 72 52 65 
+ 715      61 64 79 54 
+ 715      6F 52 65 61 
+ 716                 	.LASF6:
+ 717 00a3 69 6E 74 31 		.ascii "short int\000"
+ 717      36 00 
+ 718                 	.LASF18:
+ 719 00a6 73 68 6F 72 		.ascii "read_delay_tid\000"
+ 719      74 20 69 6E 
+ 719      74 00 
+ 720                 	.LASF9:
+ 721 00ab 72 65 61 64 		.ascii "unsigned int\000"
+ 721      5F 64 65 6C 
+ 721      61 79 5F 74 
+ 721      69 64 00 
+ 722                 	.LASF19:
+ 723 00b2 75 6E 73 69 		.ascii "GNU C 4.3.4 CSR version 24 for xap [1865517]\000"
+ 723      67 6E 65 64 
+ 723      20 69 6E 74 
+ 723      00 
+ 724                 	.LASF3:
+ 725 00b9 47 4E 55 20 		.ascii "signed char\000"
+ 725      43 20 34 2E 
+ 725      33 2E 34 20 
+ 725      43 53 52 20 
+ 725      76 65 72 73 
+ 726                 		.ident	"GCC: (GNU) 4.3.4 CSR version 24 for xap [1865517]"
+ 727 00cf 73 69 67 6E 	...
+ 727      65 64 20 63 
+ 727      68 61 72 00 

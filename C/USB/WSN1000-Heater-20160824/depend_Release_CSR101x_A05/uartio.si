@@ -1,0 +1,3004 @@
+   1                 		.file	"uartio.c"
+   2                 		.variant xap2+
+   3                 	
+   4                 		.small
+   5                 	
+   6                 		.section	.debug_abbrev,"",@progbits
+   7                 	.Ldebug_abbrev0:
+   8                 		.section	.debug_info,"",@progbits
+   9                 	.Ldebug_info0:
+  10                 		.section	.debug_line,"",@progbits
+  11                 	.Ldebug_line0:
+  12 0000 00 00 00 00 		.text
+  12      00 02 00 00 
+  12      00 00 01 01 
+  12      FB 0E 0D 00 
+  12      01 01 01 01 
+  13                 	.Ltext0:
+  14                 		.section	.text.uartInit,"ax",@progbits
+  15                 		.global	uartInit
+  16                 		.type	uartInit, @function
+  17                 	uartInit:
+  18                 	.LFB5:
+  19                 		.file 1 "uartio.c"
+   0:uartio.c      **** /******************************************************************************
+   1:uartio.c      ****  *  Copyright Cambridge Silicon Radio Limited 2012-2015
+   2:uartio.c      ****  *  Part of CSR uEnergy SDK 2.4.5
+   3:uartio.c      ****  *  Application version 2.4.5.0
+   4:uartio.c      ****  *
+   5:uartio.c      ****  *  FILE
+   6:uartio.c      ****  *      uartio.c
+   7:uartio.c      ****  *
+   8:uartio.c      ****  *  DESCRIPTION
+   9:uartio.c      ****  *      UART IO implementation.
+  10:uartio.c      ****  *
+  11:uartio.c      ****  ******************************************************************************/
+  12:uartio.c      **** 
+  13:uartio.c      **** /*============================================================================*
+  14:uartio.c      ****  *  SDK Header Files
+  15:uartio.c      ****  *============================================================================*/
+  16:uartio.c      **** 
+  17:uartio.c      **** #include <uart.h>           /* Functions to interface with the chip's UART */
+  18:uartio.c      **** 
+  19:uartio.c      **** /*============================================================================*
+  20:uartio.c      ****  *  Local Header Files
+  21:uartio.c      ****  *============================================================================*/
+  22:uartio.c      **** 
+  23:uartio.c      **** #include "uartio.h"         /* Header file to this source file */
+  24:uartio.c      **** #include "byte_queue.h"     /* Byte queue API */
+  25:uartio.c      **** #include "mem.h"
+  26:uartio.c      **** #include <string.h>
+  27:uartio.c      **** #include <timer.h>
+  28:uartio.c      **** /*============================================================================*
+  29:uartio.c      ****  *  Private Data
+  30:uartio.c      ****  *============================================================================*/
+  31:uartio.c      ****  
+  32:uartio.c      ****  /* The application is required to create two buffers, one for receive, the
+  33:uartio.c      ****   * other for transmit. The buffers need to meet the alignment requirements
+  34:uartio.c      ****   * of the hardware. See the macro definition in uart.h for more details.
+  35:uartio.c      ****   */
+  36:uartio.c      **** 
+  37:uartio.c      **** #define RX_BUFFER_SIZE      UART_BUF_SIZE_BYTES_64
+  38:uartio.c      **** #define TX_BUFFER_SIZE      UART_BUF_SIZE_BYTES_64
+  39:uartio.c      **** 
+  40:uartio.c      **** /* Create 64-byte receive buffer for UART data */
+  41:uartio.c      **** UART_DECLARE_BUFFER(rx_buffer, RX_BUFFER_SIZE);
+  42:uartio.c      **** 
+  43:uartio.c      **** /* Create 64-byte transmit buffer for UART data */
+  44:uartio.c      **** UART_DECLARE_BUFFER(tx_buffer, TX_BUFFER_SIZE);
+  45:uartio.c      **** /*20160612*/
+  46:uartio.c      **** uint16 txDataLength=0;
+  47:uartio.c      **** timer_id endOfCmd_tid=TIMER_INVALID;
+  48:uartio.c      **** /*20160725*/
+  49:uartio.c      **** bool eof=FALSE;
+  50:uartio.c      **** char start[7] ="STRREC|";
+  51:uartio.c      **** char stop [7] ="STPREC|";
+  52:uartio.c      **** char conreq[7]="CONREQ|";
+  53:uartio.c      **** //char switchPeriod[]="ON";
+  54:uartio.c      **** //char search[9]="SEARCH60|";
+  55:uartio.c      **** char sonxoffx[]="SO";//20160829
+  56:uartio.c      **** char devidreq [9] ="DEVIDREQ|";
+  57:uartio.c      **** char devidread[10]="DEVIDREAD|";
+  58:uartio.c      **** 
+  59:uartio.c      **** char searchstop[11]="SEARCHSTOP|";
+  60:uartio.c      **** char delete[3]="DEL";
+  61:uartio.c      **** char removeall [10]="REMOVEALL|";
+  62:uartio.c      **** 
+  63:uartio.c      **** char getdata[]="GETDATA|";
+  64:uartio.c      **** char getdata0[1]="G";
+  65:uartio.c      **** /*============================================================================*
+  66:uartio.c      ****  *  Private Function Prototypes
+  67:uartio.c      ****  *============================================================================*/
+  68:uartio.c      **** 
+  69:uartio.c      **** /* UART receive callback to receive serial commands */
+  70:uartio.c      **** static uint16 uartRxDataCallback(void   *p_rx_buffer,
+  71:uartio.c      ****                                  uint16  length,
+  72:uartio.c      ****                                  uint16 *p_req_data_length);
+  73:uartio.c      **** 
+  74:uartio.c      **** /* UART transmit callback when a UART transmission has finished */
+  75:uartio.c      **** static void uartTxDataCallback(void);
+  76:uartio.c      **** 
+  77:uartio.c      **** /* Transmit waiting data over UART */
+  78:uartio.c      **** //static void sendPendingData(void);
+  79:uartio.c      **** 
+  80:uartio.c      **** /*============================================================================*
+  81:uartio.c      ****  *  Private Function Implementations
+  82:uartio.c      ****  *============================================================================*/
+  83:uartio.c      **** 
+  84:uartio.c      **** /*----------------------------------------------------------------------------*
+  85:uartio.c      ****  *  NAME
+  86:uartio.c      ****  *      uartRxDataCallback
+  87:uartio.c      ****  *
+  88:uartio.c      ****  *  DESCRIPTION
+  89:uartio.c      ****  *      This is an internal callback function (of type uart_data_in_fn) that
+  90:uartio.c      ****  *      will be called by the UART driver when any data is received over UART.
+  91:uartio.c      ****  *      See DebugInit in the Firmware Library documentation for details.
+  92:uartio.c      ****  *
+  93:uartio.c      ****  * PARAMETERS
+  94:uartio.c      ****  *      p_rx_buffer [in]   Pointer to the receive buffer (uint8 if 'unpacked'
+  95:uartio.c      ****  *                         or uint16 if 'packed' depending on the chosen UART
+  96:uartio.c      ****  *                         data mode - this application uses 'unpacked')
+  97:uartio.c      ****  *
+  98:uartio.c      ****  *      length [in]        Number of bytes ('unpacked') or words ('packed')
+  99:uartio.c      ****  *                         received
+ 100:uartio.c      ****  *
+ 101:uartio.c      ****  *      p_additional_req_data_length [out]
+ 102:uartio.c      ****  *                         Number of additional bytes ('unpacked') or words
+ 103:uartio.c      ****  *                         ('packed') this application wishes to receive
+ 104:uartio.c      ****  *
+ 105:uartio.c      ****  * RETURNS
+ 106:uartio.c      ****  *      The number of bytes ('unpacked') or words ('packed') that have been
+ 107:uartio.c      ****  *      processed out of the available data.
+ 108:uartio.c      ****  *----------------------------------------------------------------------------*/
+ 109:uartio.c      **** static uint16 uartRxDataCallback(void   *p_rx_buffer,
+ 110:uartio.c      ****                                  uint16  length,
+ 111:uartio.c      ****                                  uint16 *p_additional_req_data_length)
+ 112:uartio.c      **** {
+ 113:uartio.c      ****     /*20160725*/
+ 114:uartio.c      ****     uint8 *byte=(uint8 *)p_rx_buffer;
+ 115:uartio.c      ****     if ( length > 0 )
+ 116:uartio.c      ****     {
+ 117:uartio.c      ****         if(*byte=='|') eof=TRUE;
+ 118:uartio.c      ****         
+ 119:uartio.c      ****         /* First copy all the bytes received into the byte queue */
+ 120:uartio.c      ****         BQForceQueueBytes((const uint8 *)p_rx_buffer, length);//入队列
+ 121:uartio.c      ****         txDataLength++;
+ 122:uartio.c      ****     }
+ 123:uartio.c      ****     
+ 124:uartio.c      ****     /* Send any pending data waiting to be sent */
+ 125:uartio.c      ****     //sendPendingData();
+ 126:uartio.c      ****     /*20160612*/
+ 127:uartio.c      ****                    
+ 128:uartio.c      ****     uint8 cmdData[1];    
+ 129:uartio.c      ****         if(eof==TRUE)
+ 130:uartio.c      ****         {            
+ 131:uartio.c      ****             if( MemCmp(conreq,g_queue,sizeof(conreq)/sizeof(char))==0 )//CONREQ
+ 132:uartio.c      ****             {
+ 133:uartio.c      ****                 DebugWriteString("[CONREQOK]\r\n");    
+ 134:uartio.c      ****             }
+ 135:uartio.c      ****             else if(MemCmp(start,g_queue,sizeof(start)/sizeof(uint8))==0)//STRREC
+ 136:uartio.c      ****             {
+ 137:uartio.c      ****                 continueToRecv=TRUE;//start receive
+ 138:uartio.c      ****                 //sendPendingData();DebugWriteString("\r\n");      
+ 139:uartio.c      ****             }
+ 140:uartio.c      ****             else if(MemCmp(stop,g_queue,sizeof(stop)/sizeof(uint8))==0)//STPREC
+ 141:uartio.c      ****             {   
+ 142:uartio.c      ****                 continueToRecv=FALSE;
+ 143:uartio.c      ****                 //sendPendingData();DebugWriteString("\r\n");
+ 144:uartio.c      ****             }            
+ 145:uartio.c      ****             else if( MemCmp(devidreq,g_queue,sizeof(devidreq)/sizeof(uint8)) ==0 )//DEVIDREQ
+ 146:uartio.c      ****             {
+ 147:uartio.c      ****                 idreq=FALSE;
+ 148:uartio.c      ****                 handleDevidRecv();
+ 149:uartio.c      ****                 //DebugWriteString("[DEVIDREQ50]\r\n");
+ 150:uartio.c      ****             }
+ 151:uartio.c      ****             else if( MemCmp(devidread,g_queue,sizeof(devidread)/sizeof(uint8)) ==0 )//DEVIDREAD
+ 152:uartio.c      ****             {           
+ 153:uartio.c      ****                 idreq=TRUE;//not idreq but idread
+ 154:uartio.c      ****                 handleDevidRecv();
+ 155:uartio.c      ****                 //DebugWriteString("\r\ndevidread");
+ 156:uartio.c      ****             }
+ 157:uartio.c      ****             else if( MemCmp(sonxoffx,g_queue,2) ==0)                                //SOxFx
+ 158:uartio.c      ****             {
+ 159:uartio.c      ****                 TimerDelete(clockMeshON_tid);
+ 160:uartio.c      ****                 TimerDelete(clockMeshOFF_tid);
+ 161:uartio.c      ****                 uint8 sendData[3];char timeChar[2];
+ 162:uartio.c      ****                 sendData[0]=REQ_ID_CMD;
+ 163:uartio.c      ****                 
+ 164:uartio.c      ****                 StrNCopy(timeChar,g_queue+2,2);
+ 165:uartio.c      ****                 sendData[1]=string2int(timeChar,2);//meshONTime(ascii->uint8)
+ 166:uartio.c      ****                 StrNCopy(timeChar,g_queue+5,2);
+ 167:uartio.c      ****                 sendData[2]=string2int(timeChar,2);//meshOFFTime
+ 168:uartio.c      ****                 
+ 169:uartio.c      ****                 meshONNotSleepTimeMin=sendData[1];
+ 170:uartio.c      ****                 meshOFFSleepTimeMin  =sendData[2];//local clock
+ 171:uartio.c      ****                 
+ 172:uartio.c      ****                 sendCustomCmd(500,10,sendData,3,CUSTOM_REQ_DEVID,0x0000);//broadcast
+ 173:uartio.c      ****                 DebugWriteString("[SEARCHON");printInDecimal(sendData[1]);
+ 174:uartio.c      ****                 DebugWriteString("OFF");printInDecimal(sendData[2]);
+ 175:uartio.c      ****                 DebugWriteString("]\r\n");
+ 176:uartio.c      ****                 TimerCreate(10*SECOND,TRUE,clockMeshONTimerHandler);
+ 177:uartio.c      ****             }
+ 178:uartio.c      ****             /*else if( MemCmp(search,g_queue,sizeof(search)/sizeof(uint8)) ==0 )  //SEARCH
+ 179:uartio.c      ****             {
+ 180:uartio.c      ****                 cmdData[0]=REQ_ID_CMD;
+ 181:uartio.c      ****                 //uint16 broadcastCmdCount=3;                
+ 182:uartio.c      ****                 //while(broadcastCmdCount--)
+ 183:uartio.c      ****                     sendCustomCmd(500,10,cmdData,1,CUSTOM_REQ_DEVID,0x0000);//broadcast
+ 184:uartio.c      ****                 DebugWriteString("[SEARCHSTART]\r\n");
+ 185:uartio.c      ****             }
+ 186:uartio.c      ****             else if(MemCmp(switchPeriod,g_queue,2)==0)                          //ONxOFFx
+ 187:uartio.c      ****             {
+ 188:uartio.c      ****                 uint8 meshTogglePeriod[4];char timeChar[2];
+ 189:uartio.c      ****                 
+ 190:uartio.c      ****                 StrNCopy(timeChar,g_queue+2,2);
+ 191:uartio.c      ****                 meshTogglePeriod[0]=string2int(timeChar,2);//meshONTime(uint16->uint8)
+ 192:uartio.c      ****                 StrNCopy(timeChar,g_queue+7,2);
+ 193:uartio.c      ****                 meshTogglePeriod[1]=string2int(timeChar,2);//meshOFFTime            
+ 194:uartio.c      ****                              
+ 195:uartio.c      ****                 meshONNotSleepTimeMin=meshTogglePeriod[0];
+ 196:uartio.c      ****                 meshOFFSleepTimeMin  =meshTogglePeriod[1];
+ 197:uartio.c      ****                 
+ 198:uartio.c      ****                 sendCustomCmd(100,3,meshTogglePeriod,2,CUSTOM_SET_MESH_PERIOD,0x0000);//target:all
+ 199:uartio.c      ****                 TimerCreate(TIMER_START_MESHSWITCH,TRUE,clockMeshONtimerHandler);//20160823
+ 200:uartio.c      ****                 DebugWriteString("[$READY]");
+ 201:uartio.c      ****             }*/
+ 202:uartio.c      ****             else if( MemCmp(removeall,g_queue,sizeof(removeall)/sizeof(uint8)) ==0)  //REMOVEALL
+ 203:uartio.c      ****             {
+ 204:uartio.c      ****                 delAllStoreDedvidNVM();
+ 205:uartio.c      ****                 DebugWriteString("[REMOVEALLOK]\r\n");
+ 206:uartio.c      ****             }
+ 207:uartio.c      ****             else if( MemCmp(delete,g_queue,3) ==0)                              //DELETE
+ 208:uartio.c      ****             {
+ 209:uartio.c      ****                 char devidchar[4];uint16 devid;
+ 210:uartio.c      ****                 StrNCopy(devidchar,g_queue+3,4);
+ 211:uartio.c      ****                 devid=str2inthex(devidchar,4);
+ 212:uartio.c      ****                 delDevidNVM(devid);
+ 213:uartio.c      ****                 DebugWriteString("[DELETE");DebugWriteUint16(devid);
+ 214:uartio.c      ****                 DebugWriteString("]\r\n");
+ 215:uartio.c      ****             }
+ 216:uartio.c      ****                 
+ 217:uartio.c      ****             else if(MemCmp(getdata,g_queue,sizeof(getdata)/sizeof(uint8)) ==0)  //GETDATA
+ 218:uartio.c      ****             {   
+ 219:uartio.c      ****                 cmdData[0]=REQ_SENSOR_DATA;
+ 220:uartio.c      ****                 continueToRecv=TRUE;//open SENSOR_VALUE receive locked conditions
+ 221:uartio.c      ****                 sendCustomCmd(100,3,cmdData,1,CUSTOM_REQ_DATA,0x0000);//target:all
+ 222:uartio.c      ****                 DebugWriteString("[GETDATA]\r\n");
+ 223:uartio.c      ****             }
+ 224:uartio.c      ****             //else if( (txDataLength>(sizeof(getdata)+1)) )                  //Gx
+ 225:uartio.c      ****             else if( MemCmp(getdata0,g_queue,sizeof(getdata0)/sizeof(uint8)) ==0)
+ 226:uartio.c      ****             {               
+ 227:uartio.c      ****                 char devid[4];
+ 228:uartio.c      ****                 uint16 devid_recver=0;
+ 229:uartio.c      ****                 
+ 230:uartio.c      ****                 cmdData[0]=REQ_SENSOR_DATA;
+ 231:uartio.c      ****                 StrNCopy(devid,g_queue+1,4);
+ 232:uartio.c      ****                 devid_recver=str2inthex(devid,4);
+ 233:uartio.c      ****                 
+ 234:uartio.c      ****                 continueToRecv=TRUE;
+ 235:uartio.c      ****                 sendCustomCmd(100,5,cmdData,1,CUSTOM_REQ_DATA,devid_recver);
+ 236:uartio.c      ****                 DebugWriteString("[GETDATA");DebugWriteUint16(devid_recver);
+ 237:uartio.c      ****                 DebugWriteString("]\r\n");
+ 238:uartio.c      ****             }            
+ 239:uartio.c      ****                         
+ 240:uartio.c      ****             else if( MemCmp(searchstop,g_queue,sizeof(searchstop)/sizeof(uint8)) ==0 )//SEARCHSTOP
+ 241:uartio.c      ****             {
+ 242:uartio.c      ****                 DebugWriteString("[SEARCHSTARTSTOP]\r\n");
+ 243:uartio.c      ****             }
+ 244:uartio.c      ****             
+ 245:uartio.c      ****             MemSet(g_queue,0x0,20);
+ 246:uartio.c      ****             BQClearBuffer();
+ 247:uartio.c      ****             txDataLength=0;
+ 248:uartio.c      ****             eof=FALSE;            
+ 249:uartio.c      ****         }
+ 250:uartio.c      **** 
+ 251:uartio.c      **** 
+ 252:uartio.c      ****     *p_additional_req_data_length = (uint16)1;
+ 253:uartio.c      ****     
+ 254:uartio.c      ****     /* Return the number of bytes that have been processed */
+ 255:uartio.c      ****     return length;
+ 256:uartio.c      **** }
+ 257:uartio.c      **** 
+ 258:uartio.c      **** /*----------------------------------------------------------------------------*
+ 259:uartio.c      ****  *  NAME
+ 260:uartio.c      ****  *      uartTxDataCallback
+ 261:uartio.c      ****  *
+ 262:uartio.c      ****  *  DESCRIPTION
+ 263:uartio.c      ****  *      This is an internal callback function (of type uart_data_out_fn) that
+ 264:uartio.c      ****  *      will be called by the UART driver when data transmission over the UART
+ 265:uartio.c      ****  *      is finished. See DebugInit in the Firmware Library documentation for
+ 266:uartio.c      ****  *      details.
+ 267:uartio.c      ****  *
+ 268:uartio.c      ****  * PARAMETERS
+ 269:uartio.c      ****  *      None
+ 270:uartio.c      ****  *
+ 271:uartio.c      ****  * RETURNS
+ 272:uartio.c      ****  *      Nothing
+ 273:uartio.c      ****  *----------------------------------------------------------------------------*/
+ 274:uartio.c      **** static void uartTxDataCallback(void)
+ 275:uartio.c      **** {
+ 276:uartio.c      ****     /* Send any pending data waiting to be sent */
+ 277:uartio.c      ****     sendPendingData();
+ 278:uartio.c      **** }
+ 279:uartio.c      **** 
+ 280:uartio.c      **** /*----------------------------------------------------------------------------*
+ 281:uartio.c      ****  *  NAME
+ 282:uartio.c      ****  *      sendPendingData
+ 283:uartio.c      ****  *
+ 284:uartio.c      ****  *  DESCRIPTION
+ 285:uartio.c      ****  *      Send buffered data over UART that was waiting to be sent. Perform some
+ 286:uartio.c      ****  *      translation to ensured characters are properly displayed.
+ 287:uartio.c      ****  *
+ 288:uartio.c      ****  * PARAMETERS
+ 289:uartio.c      ****  *      None
+ 290:uartio.c      ****  *
+ 291:uartio.c      ****  * RETURNS
+ 292:uartio.c      ****  *      Nothing
+ 293:uartio.c      ****  *----------------------------------------------------------------------------*/
+ 294:uartio.c      **** void sendPendingData(void)
+ 295:uartio.c      **** {   
+ 296:uartio.c      ****     /* Loop until the byte queue is empty */
+ 297:uartio.c      ****     while (BQGetDataSize() > 0)
+ 298:uartio.c      ****     {
+ 299:uartio.c      ****         uint8 byte = '\0';
+ 300:uartio.c      ****         
+ 301:uartio.c      ****         /* Read the next byte in the queue */
+ 302:uartio.c      ****         if (BQPeekBytes(&byte, 1) > 0)
+ 303:uartio.c      ****         {
+ 304:uartio.c      ****             bool ok_to_commit = FALSE;
+ 305:uartio.c      ****             
+ 306:uartio.c      ****             /* Check if Enter key was pressed */
+ 307:uartio.c      ****             if (byte == '\r')
+ 308:uartio.c      ****             {
+ 309:uartio.c      ****                 /* Echo carriage return and newline */
+ 310:uartio.c      ****                 const uint8 data[] = {byte, '\n'};//格式问题
+ 311:uartio.c      ****                 //缓冲区到UART发送缓冲中
+ 312:uartio.c      ****                 ok_to_commit = UartWrite(data, sizeof(data)/sizeof(uint8));
+ 313:uartio.c      ****             }
+ 314:uartio.c      ****             else if (byte == '\b')
+ 315:uartio.c      ****             /* If backspace key was pressed */
+ 316:uartio.c      ****             {
+ 317:uartio.c      ****                 /* Issue backspace, overwrite previous character on the
+ 318:uartio.c      ****                  * terminal, then issue another backspace
+ 319:uartio.c      ****                  */
+ 320:uartio.c      ****                 const uint8 data[] = {byte, ' ', byte};//何解？？
+ 321:uartio.c      ****                 
+ 322:uartio.c      ****                 ok_to_commit = UartWrite(data, sizeof(data)/sizeof(uint8));
+ 323:uartio.c      ****             }
+ 324:uartio.c      ****             else
+ 325:uartio.c      ****             {
+ 326:uartio.c      ****                 /* Echo the character */
+ 327:uartio.c      ****                 ok_to_commit = UartWrite(&byte, 1);
+ 328:uartio.c      ****                 //
+ 329:uartio.c      ****             }
+ 330:uartio.c      **** 
+ 331:uartio.c      ****             if (ok_to_commit)
+ 332:uartio.c      ****             {
+ 333:uartio.c      ****                 /* Now that UART driver has accepted this data
+ 334:uartio.c      ****                  * remove the data from the buffer
+ 335:uartio.c      ****                  */
+ 336:uartio.c      ****                 BQCommitLastPeek();
+ 337:uartio.c      ****             }
+ 338:uartio.c      ****             else
+ 339:uartio.c      ****             {
+ 340:uartio.c      ****                 /* If UART doesn't have enough space available to accommodate
+ 341:uartio.c      ****                  * this data, postpone sending data and leave it in the buffer
+ 342:uartio.c      ****                  * to try again later.
+ 343:uartio.c      ****                  */
+ 344:uartio.c      ****                 break;
+ 345:uartio.c      ****             }
+ 346:uartio.c      ****         }
+ 347:uartio.c      ****         else
+ 348:uartio.c      ****         {
+ 349:uartio.c      ****             /* Couldn't read data for some reason. Postpone sending data and
+ 350:uartio.c      ****              * try again later.
+ 351:uartio.c      ****             */
+ 352:uartio.c      ****             break;
+ 353:uartio.c      ****         }
+ 354:uartio.c      ****     }
+ 355:uartio.c      **** }
+ 356:uartio.c      **** 
+ 357:uartio.c      **** 
+ 358:uartio.c      **** /*============================================================================*
+ 359:uartio.c      ****  *  Public Function Implementations
+ 360:uartio.c      ****  *============================================================================*/
+ 361:uartio.c      **** 
+ 362:uartio.c      **** /*----------------------------------------------------------------------------*
+ 363:uartio.c      ****  *  NAME
+ 364:uartio.c      ****  *      Start
+ 365:uartio.c      ****  *
+ 366:uartio.c      ****  *  DESCRIPTION
+ 367:uartio.c      ****  *      Run the startup routine.
+ 368:uartio.c      ****  *
+ 369:uartio.c      ****  * PARAMETERS
+ 370:uartio.c      ****  *      last_sleep_state [in]   Last sleep state
+ 371:uartio.c      ****  *
+ 372:uartio.c      ****  * RETURNS
+ 373:uartio.c      ****  *      Nothing
+ 374:uartio.c      ****  *----------------------------------------------------------------------------*/
+ 375:uartio.c      **** void uartInit(void)
+ 376:uartio.c      **** {
+  20                 	r	#0x0006
+  21 0000 06 0B       	.LCFI0:
+  22                 		.loc 1 381 0
+ 377:uartio.c      ****     /* Initialise UART and configure with default baud rate and port
+ 378:uartio.c      ****      * configuration
+ 379:uartio.c      ****      */
+ 380:uartio.c      ****     UartInit(uartRxDataCallback,
+  23                 		AL,#rx_buffer
+  24 0001 00 00 00 14 		st	AL,@(0,Y)
+  25 0003 00 27       		ld	AL,#0x0001
+  26 0004 01 14       		st	AL,@(0x0001,Y)
+  27 0005 01 27       		ld	AL,#tx_buffer
+  28 0006 00 00 00 14 		st	AL,@(0x0002,Y)
+  29 0008 02 27       		ld	AL,#0x0001
+  30 0009 01 14       		st	AL,@(0x0003,Y)
+  31 000a 03 27       		ld	AL,#0x0002
+  32 000b 02 14       		st	AL,@(0x0004,Y)
+  33 000c 04 27       		ld	AL,#uartRxDataCallback
+  34 000d 00 00 00 14 		ld	AH,#uartTxDataCallback
+  35 000f 00 00 00 10 		bsr	UartInit
+  36 0011 00 00 00 00 		.loc 1 388 0
+  36      00 9C 
+ 381:uartio.c      ****              uartTxDataCallback,
+ 382:uartio.c      ****              rx_buffer, RX_BUFFER_SIZE,//64
+ 383:uartio.c      ****              tx_buffer, TX_BUFFER_SIZE,//64
+ 384:uartio.c      ****              uart_data_unpacked);
+ 385:uartio.c      ****     
+ 386:uartio.c      ****     /* Enable UART */
+ 387:uartio.c      ****     UartEnable(TRUE);
+  37                 	
+  38 0014 01 14       		bsr	UartEnable
+  39 0015 00 00 00 00 		.loc 1 392 0
+  39      00 9C 
+ 388:uartio.c      **** 
+ 389:uartio.c      ****     /* UART receive threshold is set to 1 byte, so that every single byte
+ 390:uartio.c      ****      * received will trigger the receiver callback */
+ 391:uartio.c      ****     UartRead(1, 0);
+  40                 	d	AL,#0x0000
+  41 0018 00 14       		st	AL,@(0,Y)
+  42 0019 00 27       		ld	AH,#0x0000
+  43 001a 00 10       		ld	AL,#0x0001
+  44 001b 01 14       		bsr	UartRead
+  45 001c 00 00 00 00 		.loc 1 395 0
+  45      00 9C 
+ 392:uartio.c      **** 
+ 393:uartio.c      ****     /* Send clear screen command over UART */
+ 394:uartio.c      **** }
+  46                 		#0x0006
+  47 001f 06 0F       	.LFE5:
+  48                 		.size	uartInit, .-uartInit
+  49                 		.global	__size_of_uartInit
+  50                 		.equ	__size_of_uartInit,. - uartInit
+  51                 		.section	.rodata.str2.2,"aMS",@progbits,2
+  52                 	.LC0:
+  53                 		.ascii "[CONREQOK]\r\n\000"
+  54 0000 00 5B 00 43 	.LC1:
+  54      00 4F 00 4E 
+  54      00 52 00 45 
+  54      00 51 00 4F 
+  54      00 4B 00 5D 
+  55                 		.ascii "[SEARCHON\000"
+  56 000d 00 5B 00 53 	.LC2:
+  56      00 45 00 41 
+  56      00 52 00 43 
+  56      00 48 00 4F 
+  56      00 4E 00 00 
+  57                 		.ascii "OFF\000"
+  58 0017 00 4F 00 46 	.LC3:
+  58      00 46 00 00 
+  59                 		.ascii "]\r\n\000"
+  60 001b 00 5D 00 0D 	.LC4:
+  60      00 0A 00 00 
+  61                 		.ascii "[REMOVEALLOK]\r\n\000"
+  62 001f 00 5B 00 52 	.LC5:
+  62      00 45 00 4D 
+  62      00 4F 00 56 
+  62      00 45 00 41 
+  62      00 4C 00 4C 
+  63                 		.ascii "[DELETE\000"
+  64 002f 00 5B 00 44 	.LC6:
+  64      00 45 00 4C 
+  64      00 45 00 54 
+  64      00 45 00 00 
+  65                 		.ascii "[GETDATA]\r\n\000"
+  66 0037 00 5B 00 47 	.LC7:
+  66      00 45 00 54 
+  66      00 44 00 41 
+  66      00 54 00 41 
+  66      00 5D 00 0D 
+  67                 		.ascii "[GETDATA\000"
+  68 0043 00 5B 00 47 	.LC8:
+  68      00 45 00 54 
+  68      00 44 00 41 
+  68      00 54 00 41 
+  68      00 00 
+  69                 		.ascii "[SEARCHSTARTSTOP]\r\n\000"
+  70 004c 00 5B 00 53 		.section	.text.uartRxDataCallback,"ax",@progbits
+  70      00 45 00 41 
+  70      00 52 00 43 
+  70      00 48 00 53 
+  70      00 54 00 41 
+  71                 		.type	uartRxDataCallback, @function
+  72                 	uartRxDataCallback:
+  73                 	.LFB2:
+  74                 		.loc 1 113 0
+ 113:uartio.c      **** {
+  75                 	
+  76                 		ld	X,@$XAP_AL
+  77 0000 0F 0B       		st	AH,@(0x000d,Y)
+  78                 		.loc 1 116 0
+  79 0001 00 00 00 19 	.LVL1:
+  80 0003 0D 23       		beq	.L4
+ 116:uartio.c      ****     if ( length > 0 )
+  81                 	:
+  82                 		.loc 1 118 0
+  83 0004 00 00 00 00 		ld	AL,@(0,X)
+  83      00 F4 
+  84                 		cmp	AL,#0x007c
+ 118:uartio.c      ****         if(*byte=='|') eof=TRUE;
+  85                 		.L5
+  86 0007 00 16       		ld	AL,#0x0001
+  87 0008 7C 84       		st	AL,@eof
+  88 0009 00 00 00 00 	.L5:
+  88      00 F0 
+  89 000c 01 14       		.loc 1 121 0
+  90 000d 00 00 00 25 		ld	AL,@$XAP_UXL
+  91                 		ld	AH,@(0x000d,Y)
+ 121:uartio.c      ****         BQForceQueueBytes((const uint8 *)p_rx_buffer, length);//入队列
+  92                 	ForceQueueBytes
+  93 000f 00 00 00 15 	.LVL3:
+  94 0011 0D 13       		.loc 1 122 0
+  95 0012 00 00 00 00 		ld	AL,@txDataLength
+  95      00 9C 
+  96                 		add	AL,#0x0001
+ 122:uartio.c      ****         txDataLength++;
+  97                 	L,@txDataLength
+  98 0015 00 00 00 15 	.LVL4:
+  99 0017 01 34       	.L4:
+ 100 0018 00 00 00 25 		.loc 1 130 0
+ 101                 		ld	AL,@eof
+ 102                 		cmp	AL,#0x0001
+ 130:uartio.c      ****         if(eof==TRUE)
+ 103                 	L6
+ 104 001a 00 00 00 15 		.loc 1 132 0
+ 105 001c 01 84       		ld	X,#0x0007
+ 106 001d 00 00 00 00 	.LVL5:
+ 106      00 F0 
+ 132:uartio.c      ****             if( MemCmp(conreq,g_queue,sizeof(conreq)/sizeof(char))==0 )//CONREQ
+ 107                 	X,@(0,Y)
+ 108 0020 07 18       		ld	AL,#conreq
+ 109                 		ld	AH,#g_queue
+ 110 0021 00 2B       		bsr	MemCmp
+ 111 0022 00 00 00 14 		tst	@$XAP_AL
+ 112 0024 00 00 00 10 		bne	.L7
+ 113 0026 00 00 00 00 		.loc 1 134 0
+ 113      00 9C 
+ 114 0029 00 00 00 99 		ld	AL,#.LC0
+ 115 002b 00 00 00 00 		bra	.L19
+ 115      00 F0 
+ 134:uartio.c      ****                 DebugWriteString("[CONREQOK]\r\n");    
+ 116                 	c 1 136 0
+ 117 002e 00 00 00 14 		ld	AL,#0x0007
+ 118 0030 00 00 00 00 		st	AL,@(0,Y)
+ 118      00 E0 
+ 119                 		ld	AL,#start
+ 136:uartio.c      ****             else if(MemCmp(start,g_queue,sizeof(start)/sizeof(uint8))==0)//STRREC
+ 120                 	AH,#g_queue
+ 121 0033 07 14       		bsr	MemCmp
+ 122 0034 00 27       		tst	@$XAP_AL
+ 123 0035 00 00 00 14 		bne	.L9
+ 124 0037 00 00 00 10 		.loc 1 138 0
+ 125 0039 00 00 00 00 		ld	X,#0x0001
+ 125      00 9C 
+ 126 003c 00 00 00 99 		bra	.L20
+ 127 003e 00 00 00 00 	.L9:
+ 127      00 F0 
+ 138:uartio.c      ****                 continueToRecv=TRUE;//start receive
+ 128                 	141 0
+ 129 0041 01 18       		ld	AL,#0x0007
+ 130 0042 00 00 00 00 		st	AL,@(0,Y)
+ 130      00 E0 
+ 131                 		ld	AL,#stop
+ 141:uartio.c      ****             else if(MemCmp(stop,g_queue,sizeof(stop)/sizeof(uint8))==0)//STPREC
+ 132                 	AH,#g_queue
+ 133 0045 07 14       		bsr	MemCmp
+ 134 0046 00 27       		tst	@$XAP_AL
+ 135 0047 00 00 00 14 		bne	.L10
+ 136 0049 00 00 00 10 		.loc 1 143 0
+ 137 004b 00 00 00 00 		ld	X,#0x0000
+ 137      00 9C 
+ 138 004e 00 00 00 99 	.L20:
+ 139 0050 00 00 00 00 		st	X,@continueToRecv
+ 139      00 F0 
+ 143:uartio.c      ****                 continueToRecv=FALSE;
+ 140                 	
+ 141 0053 00 18       	.L10:
+ 142                 		.loc 1 146 0
+ 143 0054 00 00 00 29 		ld	AL,#0x0009
+ 144 0056 00 00 00 00 		st	AL,@(0,Y)
+ 144      00 E0 
+ 145                 		ld	AL,#devidreq
+ 146:uartio.c      ****             else if( MemCmp(devidreq,g_queue,sizeof(devidreq)/sizeof(uint8)) ==0 )//DEVIDREQ
+ 146                 	H,#g_queue
+ 147 0059 09 14       		bsr	MemCmp
+ 148 005a 00 27       		tst	@$XAP_AL
+ 149 005b 00 00 00 14 		bne	.L11
+ 150 005d 00 00 00 10 		.loc 1 148 0
+ 151 005f 00 00 00 00 		ld	X,#0x0000
+ 151      00 9C 
+ 152 0062 00 00 00 99 		bra	.L21
+ 153 0064 00 00 00 00 	.L11:
+ 153      00 F0 
+ 148:uartio.c      ****                 idreq=FALSE;
+ 154                 	152 0
+ 155 0067 00 18       		ld	AL,#0x000a
+ 156 0068 00 00 00 00 		st	AL,@(0,Y)
+ 156      00 E0 
+ 157                 		ld	AL,#devidread
+ 152:uartio.c      ****             else if( MemCmp(devidread,g_queue,sizeof(devidread)/sizeof(uint8)) ==0 )//DEVIDREAD
+ 158                 	AH,#g_queue
+ 159 006b 0A 14       		bsr	MemCmp
+ 160 006c 00 27       		tst	@$XAP_AL
+ 161 006d 00 00 00 14 		bne	.L12
+ 162 006f 00 00 00 10 		.loc 1 154 0
+ 163 0071 00 00 00 00 		ld	X,#0x0001
+ 163      00 9C 
+ 164 0074 00 00 00 99 	.L21:
+ 165 0076 00 00 00 00 		st	X,@idreq
+ 165      00 F0 
+ 154:uartio.c      ****                 idreq=TRUE;//not idreq but idread
+ 166                 	155 0
+ 167 0079 01 18       		bsr	handleDevidRecv
+ 168                 		bra	.L8
+ 169 007a 00 00 00 29 	.L12:
+ 155:uartio.c      ****                 handleDevidRecv();
+ 170                 	c 1 158 0
+ 171 007c 00 00 00 00 		ld	AL,#0x0002
+ 171      00 9C 
+ 172 007f 00 00 00 00 		st	AL,@(0,Y)
+ 172      00 E0 
+ 173                 		ld	AL,#sonxoffx
+ 158:uartio.c      ****             else if( MemCmp(sonxoffx,g_queue,2) ==0)                                //SOxFx
+ 174                 	AH,#g_queue
+ 175 0082 02 14       		bsr	MemCmp
+ 176 0083 00 27       		tst	@$XAP_AL
+ 177 0084 00 00 00 14 		bne	.L13
+ 178 0086 00 00 00 10 	.LBB2:
+ 179 0088 00 00 00 00 		.loc 1 160 0
+ 179      00 9C 
+ 180 008b 00 00 00 99 		ld	AL,@clockMeshON_tid
+ 181 008d 00 00 00 00 		bsr	TimerDelete
+ 181      00 F0 
+ 182                 		.loc 1 161 0
+ 160:uartio.c      ****                 TimerDelete(clockMeshON_tid);
+ 183                 	lockMeshOFF_tid
+ 184 0090 00 00 00 15 		bsr	TimerDelete
+ 185 0092 00 00 00 00 		.loc 1 163 0
+ 185      00 9C 
+ 161:uartio.c      ****                 TimerDelete(clockMeshOFF_tid);
+ 186                 		X,#0x00f1
+ 187 0095 00 00 00 15 		st	X,@(0x0007,Y)
+ 188 0097 00 00 00 00 		.loc 1 165 0
+ 188      00 9C 
+ 163:uartio.c      ****                 sendData[0]=REQ_ID_CMD;
+ 189                 		AL,#0x0002
+ 190 009a 01 00 F1 18 		st	AL,@(0,Y)
+ 191 009c 07 2B       		ld	AL,@$XAP_UY
+ 165:uartio.c      ****                 StrNCopy(timeChar,g_queue+2,2);
+ 192                 	d	AL,#0x0005
+ 193 009d 02 14       		ld	AH,#g_queue+2
+ 194 009e 00 27       		bsr	StrNCopy
+ 195 009f 00 00 00 15 		.loc 1 166 0
+ 196 00a1 05 34       		ld	AL,@$XAP_UY
+ 197 00a2 00 00 00 10 		add	AL,#0x0005
+ 198 00a4 00 00 00 00 		ld	AH,#0x0002
+ 198      00 9C 
+ 166:uartio.c      ****                 sendData[1]=string2int(timeChar,2);//meshONTime(ascii->uint8)
+ 199                 	ring2int
+ 200 00a7 00 00 00 15 		st	AL,@(0x0008,Y)
+ 201 00a9 05 34       		.loc 1 167 0
+ 202 00aa 02 10       		ld	X,#0x0002
+ 203 00ab 00 00 00 00 		st	X,@(0,Y)
+ 203      00 9C 
+ 204 00ae 08 27       		ld	AL,@$XAP_UY
+ 167:uartio.c      ****                 StrNCopy(timeChar,g_queue+5,2);
+ 205                 	L,#0x0005
+ 206 00af 02 18       		ld	AH,#g_queue+5
+ 207 00b0 00 2B       		bsr	StrNCopy
+ 208 00b1 00 00 00 15 		.loc 1 168 0
+ 209 00b3 05 34       		ld	AL,@$XAP_UY
+ 210 00b4 00 00 00 10 		add	AL,#0x0005
+ 211 00b6 00 00 00 00 		ld	AH,#0x0002
+ 211      00 9C 
+ 168:uartio.c      ****                 sendData[2]=string2int(timeChar,2);//meshOFFTime
+ 212                 	ring2int
+ 213 00b9 00 00 00 15 		st	AL,@(0x0009,Y)
+ 214 00bb 05 34       		.loc 1 170 0
+ 215 00bc 02 10       		ld	X,@(0x0008,Y)
+ 216 00bd 00 00 00 00 		st	X,@meshONNotSleepTimeMin
+ 216      00 9C 
+ 217 00c0 09 27       		.loc 1 171 0
+ 170:uartio.c      ****                 meshONNotSleepTimeMin=sendData[1];
+ 218                 	,@meshOFFSleepTimeMin
+ 219 00c1 08 1B       		.loc 1 173 0
+ 220 00c2 00 00 00 29 		ld	AL,@$XAP_UY
+ 171:uartio.c      ****                 meshOFFSleepTimeMin  =sendData[2];//local clock
+ 221                 	d	AL,#0x0007
+ 222 00c4 00 00 00 25 		st	AL,@(0,Y)
+ 173:uartio.c      ****                 sendCustomCmd(500,10,sendData,3,CUSTOM_REQ_DEVID,0x0000);//broadcast
+ 223                 	d	X,#0x0003
+ 224 00c6 00 00 00 15 		st	X,@(0x0001,Y)
+ 225 00c8 07 34       		ld	AL,#0x0050
+ 226 00c9 00 27       		st	AL,@(0x0002,Y)
+ 227 00ca 03 18       		ld	X,#0x0000
+ 228 00cb 01 2B       		st	X,@(0x0003,Y)
+ 229 00cc 50 14       		ld	AL,#0x01f4
+ 230 00cd 02 27       		ld	AH,#0x000a
+ 231 00ce 00 18       		bsr	sendCustomCmd
+ 232 00cf 03 2B       		.loc 1 174 0
+ 233 00d0 02 00 F4 14 		ld	AL,#.LC1
+ 234 00d2 0A 10       		bsr	DebugWriteString
+ 235 00d3 00 00 00 00 		ld	AL,@(0x0008,Y)
+ 235      00 9C 
+ 174:uartio.c      ****                 DebugWriteString("[SEARCHON");printInDecimal(sendData[1]);
+ 236                 	0
+ 237 00d6 00 00 00 14 		bsr	printInDecimal
+ 238 00d8 00 00 00 00 		.loc 1 175 0
+ 238      00 9C 
+ 239 00db 08 17       		ld	AL,#.LC2
+ 240 00dc 00 10       		bsr	DebugWriteString
+ 241 00dd 00 00 00 00 		ld	AL,@(0x0009,Y)
+ 241      00 9C 
+ 175:uartio.c      ****                 DebugWriteString("OFF");printInDecimal(sendData[2]);
+ 242                 	,#0x0000
+ 243 00e0 00 00 00 14 		bsr	printInDecimal
+ 244 00e2 00 00 00 00 		.loc 1 176 0
+ 244      00 9C 
+ 245 00e5 09 17       		ld	AL,#.LC3
+ 246 00e6 00 10       		bsr	DebugWriteString
+ 247 00e7 00 00 00 00 		.loc 1 177 0
+ 247      00 9C 
+ 176:uartio.c      ****                 DebugWriteString("]\r\n");
+ 248                 	,#0x0001
+ 249 00ea 00 00 00 14 		st	AL,@(0,Y)
+ 250 00ec 00 00 00 00 		ld	X,#clockMeshONTimerHandler
+ 250      00 9C 
+ 177:uartio.c      ****                 TimerCreate(10*SECOND,TRUE,clockMeshONTimerHandler);
+ 251                 		X,@(0x0001,Y)
+ 252 00ef 01 14       		ld	AH,#0x0098
+ 253 00f0 00 27       		ld	AL,#0x9680
+ 254 00f1 00 00 00 18 		bsr	TimerCreate
+ 255 00f3 01 2B       		bra	.L8
+ 256 00f4 01 00 98 10 	.L13:
+ 257 00f6 97 00 80 14 	.LBE2:
+ 258 00f8 00 00 00 00 		.loc 1 203 0
+ 258      00 9C 
+ 259 00fb 00 00 00 00 		ld	AL,#0x000a
+ 259      00 E0 
+ 260                 		st	AL,@(0,Y)
+ 261                 		ld	AL,#removeall
+ 203:uartio.c      ****             else if( MemCmp(removeall,g_queue,sizeof(removeall)/sizeof(uint8)) ==0)  //REMOVEALL
+ 262                 	ueue
+ 263 00fe 0A 14       		bsr	MemCmp
+ 264 00ff 00 27       		tst	@$XAP_AL
+ 265 0100 00 00 00 14 		bne	.L14
+ 266 0102 00 00 00 10 		.loc 1 205 0
+ 267 0104 00 00 00 00 		bsr	delAllStoreDedvidNVM
+ 267      00 9C 
+ 268 0107 00 00 00 99 		.loc 1 206 0
+ 269 0109 00 00 00 00 		ld	AL,#.LC4
+ 269      00 F0 
+ 205:uartio.c      ****                 delAllStoreDedvidNVM();
+ 270                 	9
+ 271 010c 00 00 00 00 	.L14:
+ 271      00 9C 
+ 206:uartio.c      ****                 DebugWriteString("[REMOVEALLOK]\r\n");
+ 272                 	loc 1 208 0
+ 273 010f 00 00 00 14 		ld	X,#0x0003
+ 274 0111 00 00 00 00 		st	X,@(0,Y)
+ 274      00 E0 
+ 275                 		ld	AL,#delete
+ 208:uartio.c      ****             else if( MemCmp(delete,g_queue,3) ==0)                              //DELETE
+ 276                 	AH,#g_queue
+ 277 0114 03 18       		bsr	MemCmp
+ 278 0115 00 2B       		tst	@$XAP_AL
+ 279 0116 00 00 00 14 		bne	.L15
+ 280 0118 00 00 00 10 	.LBB3:
+ 281 011a 00 00 00 00 		.loc 1 211 0
+ 281      00 9C 
+ 282 011d 00 00 00 99 		ld	AL,#0x0004
+ 283 011f 00 00 00 00 		st	AL,@(0,Y)
+ 283      00 F0 
+ 284                 		ld	AL,@$XAP_UY
+ 211:uartio.c      ****                 StrNCopy(devidchar,g_queue+3,4);
+ 285                 	0x0007
+ 286 0122 04 14       		ld	AH,#g_queue+3
+ 287 0123 00 27       		bsr	StrNCopy
+ 288 0124 00 00 00 15 		.loc 1 212 0
+ 289 0126 07 34       		ld	AL,@$XAP_UY
+ 290 0127 00 00 00 10 		add	AL,#0x0007
+ 291 0129 00 00 00 00 		ld	AH,#0x0004
+ 291      00 9C 
+ 212:uartio.c      ****                 devid=str2inthex(devidchar,4);
+ 292                 	r2inthex
+ 293 012c 00 00 00 15 		st	AL,@(0x000c,Y)
+ 294 012e 07 34       	.LVL6:
+ 295 012f 04 10       		.loc 1 213 0
+ 296 0130 00 00 00 00 		bsr	delDevidNVM
+ 296      00 9C 
+ 297 0133 0C 27       		.loc 1 214 0
+ 298                 		ld	AL,#.LC5
+ 213:uartio.c      ****                 delDevidNVM(devid);
+ 299                 	bugWriteString
+ 300 0134 00 00 00 00 		ld	AL,@(0x000c,Y)
+ 300      00 9C 
+ 214:uartio.c      ****                 DebugWriteString("[DELETE");DebugWriteUint16(devid);
+ 301                 	ra	.L22
+ 302 0137 00 00 00 14 	.LVL7:
+ 303 0139 00 00 00 00 	.L15:
+ 303      00 9C 
+ 304 013c 0C 17       	.LBE3:
+ 305 013d 00 00 00 00 		.loc 1 218 0
+ 305      00 E0 
+ 306                 		ld	X,#0x0009
+ 307                 		st	X,@(0,Y)
+ 308                 		ld	AL,#getdata
+ 218:uartio.c      ****             else if(MemCmp(getdata,g_queue,sizeof(getdata)/sizeof(uint8)) ==0)  //GETDATA
+ 309                 	g_queue
+ 310 0140 09 18       		bsr	MemCmp
+ 311 0141 00 2B       		tst	@$XAP_AL
+ 312 0142 00 00 00 14 		bne	.L16
+ 313 0144 00 00 00 10 		.loc 1 220 0
+ 314 0146 00 00 00 00 		ld	AL,#0x00f2
+ 314      00 9C 
+ 315 0149 00 00 00 99 		st	AL,@(0x0004,Y)
+ 316 014b 00 00 00 00 		.loc 1 221 0
+ 316      00 F0 
+ 220:uartio.c      ****                 cmdData[0]=REQ_SENSOR_DATA;
+ 317                 	x0001
+ 318 014e 01 00 F2 14 		st	X,@continueToRecv
+ 319 0150 04 27       		.loc 1 222 0
+ 221:uartio.c      ****                 continueToRecv=TRUE;//open SENSOR_VALUE receive locked conditions
+ 320                 		AL,@$XAP_UY
+ 321 0151 01 18       		add	AL,#0x0004
+ 322 0152 00 00 00 29 		st	AL,@(0,Y)
+ 222:uartio.c      ****                 sendCustomCmd(100,3,cmdData,1,CUSTOM_REQ_DATA,0x0000);//target:all
+ 323                 		X,@(0x0001,Y)
+ 324 0154 00 00 00 15 		ld	X,#0x0052
+ 325 0156 04 34       		st	X,@(0x0002,Y)
+ 326 0157 00 27       		ld	AL,#0x0000
+ 327 0158 01 2B       		st	AL,@(0x0003,Y)
+ 328 0159 52 18       		ld	AL,#0x0064
+ 329 015a 02 2B       		ld	AH,#0x0003
+ 330 015b 00 14       		bsr	sendCustomCmd
+ 331 015c 03 27       		.loc 1 223 0
+ 332 015d 64 14       		ld	AL,#.LC6
+ 333 015e 03 10       		bra	.L19
+ 334 015f 00 00 00 00 	.L16:
+ 334      00 9C 
+ 223:uartio.c      ****                 DebugWriteString("[GETDATA]\r\n");
+ 335                 	0
+ 336 0162 00 00 00 14 		ld	X,#0x0001
+ 337 0164 00 00 00 00 		st	X,@(0,Y)
+ 337      00 E0 
+ 338                 		ld	AL,#getdata0
+ 226:uartio.c      ****             else if( MemCmp(getdata0,g_queue,sizeof(getdata0)/sizeof(uint8)) ==0)
+ 339                 	AH,#g_queue
+ 340 0167 01 18       		bsr	MemCmp
+ 341 0168 00 2B       		tst	@$XAP_AL
+ 342 0169 00 00 00 14 		bne	.L17
+ 343 016b 00 00 00 10 	.LBB4:
+ 344 016d 00 00 00 00 		.loc 1 231 0
+ 344      00 9C 
+ 345 0170 00 00 00 99 		ld	AL,#0x00f2
+ 346 0172 00 00 00 00 		st	AL,@(0x0004,Y)
+ 346      00 F0 
+ 347                 		.loc 1 232 0
+ 231:uartio.c      ****                 cmdData[0]=REQ_SENSOR_DATA;
+ 348                 	0004
+ 349 0175 01 00 F2 14 		st	X,@(0,Y)
+ 350 0177 04 27       		ld	AL,@$XAP_UY
+ 232:uartio.c      ****                 StrNCopy(devid,g_queue+1,4);
+ 351                 	d	AL,#0x0007
+ 352 0178 04 18       		ld	AH,#g_queue+1
+ 353 0179 00 2B       		bsr	StrNCopy
+ 354 017a 00 00 00 15 		.loc 1 233 0
+ 355 017c 07 34       		ld	AL,@$XAP_UY
+ 356 017d 00 00 00 10 		add	AL,#0x0007
+ 357 017f 00 00 00 00 		ld	AH,#0x0004
+ 357      00 9C 
+ 233:uartio.c      ****                 devid_recver=str2inthex(devid,4);
+ 358                 	r2inthex
+ 359 0182 00 00 00 15 		st	AL,@(0x000b,Y)
+ 360 0184 07 34       	.LVL8:
+ 361 0185 04 10       		.loc 1 235 0
+ 362 0186 00 00 00 00 		ld	AL,#0x0001
+ 362      00 9C 
+ 363 0189 0B 27       		st	AL,@continueToRecv
+ 364                 		.loc 1 236 0
+ 235:uartio.c      ****                 continueToRecv=TRUE;
+ 365                 	$XAP_UY
+ 366 018a 01 14       		add	X,#0x0004
+ 367 018b 00 00 00 25 		st	X,@(0,Y)
+ 236:uartio.c      ****                 sendCustomCmd(100,5,cmdData,1,CUSTOM_REQ_DATA,devid_recver);
+ 368                 		AL,@(0x0001,Y)
+ 369 018d 00 00 00 19 		ld	AL,#0x0052
+ 370 018f 04 38       		st	AL,@(0x0002,Y)
+ 371 0190 00 2B       		ld	X,@(0x000b,Y)
+ 372 0191 01 27       		st	X,@(0x0003,Y)
+ 373 0192 52 14       		ld	AL,#0x0064
+ 374 0193 02 27       		ld	AH,#0x0005
+ 375 0194 0B 1B       		bsr	sendCustomCmd
+ 376 0195 03 2B       		.loc 1 237 0
+ 377 0196 64 14       		ld	AL,#.LC7
+ 378 0197 05 10       		bsr	DebugWriteString
+ 379 0198 00 00 00 00 		ld	AL,@(0x000b,Y)
+ 379      00 9C 
+ 237:uartio.c      ****                 DebugWriteString("[GETDATA");DebugWriteUint16(devid_recver);
+ 380                 	
+ 381 019b 00 00 00 14 		bsr	DebugWriteUint16
+ 382 019d 00 00 00 00 		.loc 1 238 0
+ 382      00 9C 
+ 383 01a0 0B 17       		ld	AL,#.LC3
+ 384                 		bra	.L19
+ 385                 	.LVL10:
+ 386 01a1 00 00 00 00 	.L17:
+ 386      00 9C 
+ 238:uartio.c      ****                 DebugWriteString("]\r\n");
+ 387                 	
+ 388 01a4 00 00 00 14 		.loc 1 241 0
+ 389 01a6 00 00 00 00 		ld	AL,#0x000b
+ 389      00 E0 
+ 390                 		st	AL,@(0,Y)
+ 391                 		ld	AL,#searchstop
+ 392                 		ld	AH,#g_queue
+ 241:uartio.c      ****             else if( MemCmp(searchstop,g_queue,sizeof(searchstop)/sizeof(uint8)) ==0 )//SEARCHSTOP
+ 393                 	MemCmp
+ 394 01a9 0B 14       		tst	@$XAP_AL
+ 395 01aa 00 27       		bne	.L8
+ 396 01ab 00 00 00 14 		.loc 1 243 0
+ 397 01ad 00 00 00 10 		ld	AL,#.LC8
+ 398 01af 00 00 00 00 	.LVL11:
+ 398      00 9C 
+ 399 01b2 00 00 00 99 	.L19:
+ 400 01b4 00 00 00 00 		bsr	DebugWriteString
+ 400      00 F0 
+ 243:uartio.c      ****                 DebugWriteString("[SEARCHSTARTSTOP]\r\n");
+ 401                 	oc 1 246 0
+ 402 01b7 00 00 00 14 		ld	X,#0x0014
+ 403                 		st	X,@(0,Y)
+ 404                 		ld	AL,#g_queue
+ 405 01b9 00 00 00 00 		ld	AH,#0x0000
+ 405      00 9C 
+ 406                 		bsr	memset
+ 246:uartio.c      ****             MemSet(g_queue,0x0,20);
+ 407                 	1 247 0
+ 408 01bc 14 18       		bsr	BQClearBuffer
+ 409 01bd 00 2B       		.loc 1 248 0
+ 410 01be 00 00 00 14 		ld	AL,#0x0000
+ 411 01c0 00 10       		st	AL,@txDataLength
+ 412 01c1 00 00 00 00 		.loc 1 249 0
+ 412      00 9C 
+ 247:uartio.c      ****             BQClearBuffer();
+ 413                 	,@eof
+ 414 01c4 00 00 00 00 	.LVL12:
+ 414      00 9C 
+ 248:uartio.c      ****             txDataLength=0;
+ 415                 	6:
+ 416 01c7 00 14       		.loc 1 253 0
+ 417 01c8 00 00 00 25 		ld	X,@(0x000f,Y)
+ 249:uartio.c      ****             eof=FALSE;            
+ 418                 	L13:
+ 419 01ca 00 00 00 25 		ld	AL,#0x0001
+ 420                 		st	AL,@(0,X)
+ 421                 		.loc 1 257 0
+ 253:uartio.c      ****     *p_additional_req_data_length = (uint16)1;
+ 422                 	AL,@(0x000d,Y)
+ 423 01cc 0F 1B       		leave	#0x000f
+ 424                 	.LFE2:
+ 425 01cd 01 14       		.size	uartRxDataCallback, .-uartRxDataCallback
+ 426 01ce 00 26       		.equ	__size_of_uartRxDataCallback,. - uartRxDataCallback
+ 257:uartio.c      **** }
+ 427                 	tion	.text.sendPendingData,"ax",@progbits
+ 428 01cf 0D 17       		.global	sendPendingData
+ 429 01d0 0F 0F       		.type	sendPendingData, @function
+ 430                 	sendPendingData:
+ 431                 	.LFB4:
+ 432                 		.loc 1 296 0
+ 433                 		enter	#0x0005
+ 434                 	.LCFI2:
+ 435                 		bra	.L24
+ 436                 	.LVL14:
+ 437                 	.L29:
+ 296:uartio.c      **** {   
+ 438                 	c 1 300 0
+ 439 0000 05 0B       		ld	AL,#0x0000
+ 440                 		st	AL,@(0,Y)
+ 441 0001 00 00 00 00 	.LVL15:
+ 441      00 E0 
+ 442                 		.loc 1 303 0
+ 443                 		ld	AL,@$XAP_UY
+ 444                 		ld	AH,#0x0001
+ 300:uartio.c      ****         uint8 byte = '\0';
+ 445                 	PeekBytes
+ 446 0004 00 14       		tst	@$XAP_AL
+ 447 0005 00 27       		beq	.L30
+ 448                 	.LBB6:
+ 303:uartio.c      ****         if (BQPeekBytes(&byte, 1) > 0)
+ 449                 	c 1 308 0
+ 450 0006 00 00 00 15 		ld	AL,@(0,Y)
+ 451 0008 01 10       		cmp	AL,#0x000d
+ 452 0009 00 00 00 00 		bne	.L26
+ 452      00 9C 
+ 453 000c 00 00 00 99 	.LBB7:
+ 454 000e 00 00 00 00 		.loc 1 311 0
+ 454      00 F4 
+ 455                 		st	AL,@(0x0001,Y)
+ 308:uartio.c      ****             if (byte == '\r')
+ 456                 	#0x000a
+ 457 0011 00 17       		st	AL,@(0x0002,Y)
+ 458 0012 0D 84       		.loc 1 313 0
+ 459 0013 00 00 00 00 		ld	AL,@$XAP_UY
+ 459      00 F0 
+ 460                 		add	AL,#0x0001
+ 311:uartio.c      ****                 const uint8 data[] = {byte, '\n'};//格式问题
+ 461                 	H,#0x0002
+ 462 0016 01 27       		bra	.L31
+ 463 0017 0A 14       	.L26:
+ 464 0018 02 27       	.LBE7:
+ 313:uartio.c      ****                 ok_to_commit = UartWrite(data, sizeof(data)/sizeof(uint8));
+ 465                 	c 1 315 0
+ 466 0019 00 00 00 15 		cmp	AL,#0x0008
+ 467 001b 01 34       		bne	.L28
+ 468 001c 02 10       	.LBB8:
+ 469 001d 00 00 00 00 		.loc 1 321 0
+ 469      00 E0 
+ 470                 		st	AL,@(0x0001,Y)
+ 471                 		ld	AL,#0x0020
+ 315:uartio.c      ****             else if (byte == '\b')
+ 472                 	@(0x0002,Y)
+ 473 0020 08 84       		ld	AL,#0x0008
+ 474 0021 00 00 00 00 		st	AL,@(0x0003,Y)
+ 474      00 F0 
+ 475                 		.loc 1 323 0
+ 321:uartio.c      ****                 const uint8 data[] = {byte, ' ', byte};//何解？？
+ 476                 	AL,@$XAP_UY
+ 477 0024 01 27       		add	AL,#0x0001
+ 478 0025 20 14       		ld	AH,#0x0003
+ 479 0026 02 27       		bra	.L31
+ 480 0027 08 14       	.L28:
+ 481 0028 03 27       	.LBE8:
+ 323:uartio.c      ****                 ok_to_commit = UartWrite(data, sizeof(data)/sizeof(uint8));
+ 482                 	1 328 0
+ 483 0029 00 00 00 15 		ld	AL,@$XAP_UY
+ 484 002b 01 34       		ld	AH,#0x0001
+ 485 002c 03 10       	.L31:
+ 486 002d 00 00 00 00 		bsr	UartWrite
+ 486      00 E0 
+ 487                 		.loc 1 332 0
+ 488                 		tst	@$XAP_AL
+ 328:uartio.c      ****                 ok_to_commit = UartWrite(&byte, 1);
+ 489                 	
+ 490 0030 00 00 00 15 		beq	.L30
+ 491 0032 01 10       		.loc 1 337 0
+ 492                 		bsr	BQCommitLastPeek
+ 493 0033 00 00 00 00 	.LVL17:
+ 493      00 9C 
+ 332:uartio.c      ****             if (ok_to_commit)
+ 494                 	:
+ 495 0036 00 00 00 99 	.LBE6:
+ 496                 	.LBE5:
+ 497 0038 00 00 00 00 		.loc 1 298 0
+ 497      00 F4 
+ 337:uartio.c      ****                 BQCommitLastPeek();
+ 498                 		BQGetDataSize
+ 499 003b 00 00 00 00 		tst	@$XAP_AL
+ 499      00 9C 
+ 500                 		bne	.L29
+ 501                 	.LVL18:
+ 502                 	.L30:
+ 503                 		.loc 1 356 0
+ 298:uartio.c      ****     while (BQGetDataSize() > 0)
+ 504                 		#0x0005
+ 505 003e 00 00 00 00 	.LFE4:
+ 505      00 9C 
+ 506 0041 00 00 00 99 		.size	sendPendingData, .-sendPendingData
+ 507 0043 00 00 00 00 		.global	__size_of_sendPendingData
+ 507      00 F0 
+ 508                 		.equ	__size_of_sendPendingData,. - sendPendingData
+ 509                 		.section	.text.uartTxDataCallback,"ax",@progbits
+ 356:uartio.c      **** }
+ 510                 		uartTxDataCallback, @function
+ 511 0046 05 0F       	uartTxDataCallback:
+ 512                 	.LFB3:
+ 513                 		.loc 1 276 0
+ 514                 		.loc 1 278 0
+ 515                 		bra	sendPendingData
+ 516                 	.LFE3:
+ 517                 		.size	uartTxDataCallback, .-uartTxDataCallback
+ 518                 		.equ	__size_of_uartTxDataCallback,. - uartTxDataCallback
+ 519                 		.global	txDataLength
+ 276:uartio.c      **** {
+ 520                 	.bss.txDataLength,"aw",@nobits
+ 278:uartio.c      ****     sendPendingData();
+ 521                 	.type	txDataLength, @object
+ 522 0000 00 00 00 00 		.size	txDataLength, 1
+ 522      00 E0 
+ 523                 	txDataLength:
+ 524                 		.space	1
+ 525                 		.global	endOfCmd_tid
+ 526                 		.section	.bss.endOfCmd_tid,"aw",@nobits
+ 527                 		.type	endOfCmd_tid, @object
+ 528                 		.size	endOfCmd_tid, 1
+ 529                 	endOfCmd_tid:
+ 530                 		.space	1
+ 531 0000 00 00       		.global	eof
+ 532                 		.section	.bss.eof,"aw",@nobits
+ 533                 		.type	eof, @object
+ 534                 		.size	eof, 1
+ 535                 	eof:
+ 536                 		.space	1
+ 537 0000 00 00       		.global	start
+ 538                 		.section	.data.start,"aw",@progbits
+ 539                 		.type	start, @object
+ 540                 		.size	start, 7
+ 541                 	start:
+ 542                 		.ascii "STRREC|"
+ 543 0000 00 00       		.global	stop
+ 544                 		.section	.data.stop,"aw",@progbits
+ 545                 		.type	stop, @object
+ 546                 		.size	stop, 7
+ 547                 	stop:
+ 548                 		.ascii "STPREC|"
+ 549 0000 00 53 00 54 		.global	conreq
+ 549      00 52 00 52 
+ 549      00 45 00 43 
+ 549      00 7C 
+ 550                 		.section	.data.conreq,"aw",@progbits
+ 551                 		.type	conreq, @object
+ 552                 		.size	conreq, 7
+ 553                 	conreq:
+ 554                 		.ascii "CONREQ|"
+ 555 0000 00 53 00 54 		.global	sonxoffx
+ 555      00 50 00 52 
+ 555      00 45 00 43 
+ 555      00 7C 
+ 556                 		.section	.data.sonxoffx,"aw",@progbits
+ 557                 		.type	sonxoffx, @object
+ 558                 		.size	sonxoffx, 3
+ 559                 	sonxoffx:
+ 560                 		.ascii "SO\000"
+ 561 0000 00 43 00 4F 		.global	devidreq
+ 561      00 4E 00 52 
+ 561      00 45 00 51 
+ 561      00 7C 
+ 562                 		.section	.data.devidreq,"aw",@progbits
+ 563                 		.type	devidreq, @object
+ 564                 		.size	devidreq, 9
+ 565                 	devidreq:
+ 566                 		.ascii "DEVIDREQ|"
+ 567 0000 00 53 00 4F 		.global	devidread
+ 567      00 00 
+ 568                 		.section	.data.devidread,"aw",@progbits
+ 569                 		.type	devidread, @object
+ 570                 		.size	devidread, 10
+ 571                 	devidread:
+ 572                 		.ascii "DEVIDREAD|"
+ 573 0000 00 44 00 45 		.global	searchstop
+ 573      00 56 00 49 
+ 573      00 44 00 52 
+ 573      00 45 00 51 
+ 573      00 7C 
+ 574                 		.section	.data.searchstop,"aw",@progbits
+ 575                 		.type	searchstop, @object
+ 576                 		.size	searchstop, 11
+ 577                 	searchstop:
+ 578                 		.ascii "SEARCHSTOP|"
+ 579 0000 00 44 00 45 		.global	delete
+ 579      00 56 00 49 
+ 579      00 44 00 52 
+ 579      00 45 00 41 
+ 579      00 44 00 7C 
+ 580                 		.section	.data.delete,"aw",@progbits
+ 581                 		.type	delete, @object
+ 582                 		.size	delete, 3
+ 583                 	delete:
+ 584                 		.ascii "DEL"
+ 585 0000 00 53 00 45 		.global	removeall
+ 585      00 41 00 52 
+ 585      00 43 00 48 
+ 585      00 53 00 54 
+ 585      00 4F 00 50 
+ 586                 		.section	.data.removeall,"aw",@progbits
+ 587                 		.type	removeall, @object
+ 588                 		.size	removeall, 10
+ 589                 	removeall:
+ 590                 		.ascii "REMOVEALL|"
+ 591 0000 00 44 00 45 		.global	getdata
+ 591      00 4C 
+ 592                 		.section	.data.getdata,"aw",@progbits
+ 593                 		.type	getdata, @object
+ 594                 		.size	getdata, 9
+ 595                 	getdata:
+ 596                 		.ascii "GETDATA|\000"
+ 597 0000 00 52 00 45 		.global	getdata0
+ 597      00 4D 00 4F 
+ 597      00 56 00 45 
+ 597      00 41 00 4C 
+ 597      00 4C 00 7C 
+ 598                 		.section	.data.getdata0,"aw",@progbits
+ 599                 		.type	getdata0, @object
+ 600                 		.size	getdata0, 1
+ 601                 	getdata0:
+ 602                 		.ascii "G"
+ 603 0000 00 47 00 45 		.section	.bss.rx_buffer,"aw",@nobits
+ 603      00 54 00 44 
+ 603      00 41 00 54 
+ 603      00 41 00 7C 
+ 603      00 00 
+ 604                 		.p2align	1
+ 605                 		.type	rx_buffer, @object
+ 606                 		.size	rx_buffer, 32
+ 607                 	rx_buffer:
+ 608                 		.space	32
+ 609 0000 00 47       		.section	.bss.tx_buffer,"aw",@nobits
+ 610                 		.p2align	1
+ 611                 		.type	tx_buffer, @object
+ 612                 		.size	tx_buffer, 32
+ 613                 	tx_buffer:
+ 614                 		.space	32
+ 615 0000 00 00 00 00 		.comm g_queue, 256, 1
+ 615      00 00 00 00 
+ 615      00 00 00 00 
+ 615      00 00 00 00 
+ 615      00 00 00 00 
+ 616                 	
+ 617                 		.comm currentHeaterStatus, 1, 1
+ 618                 	
+ 619                 		.comm heater_status, 1, 1
+ 620                 	
+ 621 0000 00 00 00 00 		.comm receive_delay_tid, 1, 1
+ 621      00 00 00 00 
+ 621      00 00 00 00 
+ 621      00 00 00 00 
+ 621      00 00 00 00 
+ 622                 	
+ 623                 		.comm meshONNotSleepTimeMin, 1, 1
+ 624                 	
+ 625                 		.comm meshOFFSleepTimeMin, 1, 1
+ 626                 	
+ 627                 		.comm clockMeshON_tid, 1, 1
+ 628                 	
+ 629                 		.comm clockMeshOFF_tid, 1, 1
+ 630                 	
+ 631                 		.comm idreq, 1, 1
+ 632                 	
+ 633                 		.comm continueToRecv, 1, 1
+ 634                 	
+ 635                 		.comm inputNumberOfSensor, 1, 1
+ 636                 	
+ 637                 		.section	.debug_frame,"",@progbits
+ 638                 	.Lframe0:
+ 639                 		.4byte	.LECIE0-.LSCIE0
+ 640                 	.LSCIE0:
+ 641                 		.4byte	0xffffffff
+ 642                 		.1byte	0x1
+ 643                 		.ascii "\000"
+ 644                 		.1byte	0x1
+ 645                 		.1byte	0x7f
+ 646 0000 00 00 00 00 		.1byte	0x3
+ 647                 		.1byte	0xc
+ 648 0002 FF FF FF FF 		.1byte	0x5
+ 649 0004 01          		.1byte	0x0
+ 650 0004 00          		.p2align	2
+ 651 0005 01          	.LECIE0:
+ 652 0005 7F          	.LSFDE0:
+ 653 0006 03          		.4byte	.LEFDE0-.LASFDE0
+ 654 0006 0C          	.LASFDE0:
+ 655 0007 05          		.4byte	.Lframe0
+ 656 0007 00          		.4byte	.LFB5
+ 657                 		.4byte	.LFE5-.LFB5
+ 658                 		.1byte	0x4
+ 659                 		.4byte	.LCFI0-.LFB5
+ 660 0008 00 00 00 00 		.1byte	0xe
+ 661                 		.1byte	0x6
+ 662 000a 00 00 00 00 		.1byte	0x83
+ 663 000c 00 00 00 00 		.1byte	0x1
+ 664 000e 00 00 00 00 		.p2align	2
+ 665 0010 41          	.LEFDE0:
+ 666                 	.LSFDE2:
+ 667 0010 0E          		.4byte	.LEFDE2-.LASFDE2
+ 668 0011 06          	.LASFDE2:
+ 669 0011 83          		.4byte	.Lframe0
+ 670 0012 01          		.4byte	.LFB2
+ 671 0012 00 00 00    		.4byte	.LFE2-.LFB2
+ 672                 		.1byte	0x4
+ 673                 		.4byte	.LCFI1-.LFB2
+ 674 0014 00 00 00 00 		.1byte	0xe
+ 675                 		.1byte	0xf
+ 676 0016 00 00 00 00 		.1byte	0x83
+ 677 0018 00 00 00 00 		.1byte	0x1
+ 678 001a 00 00 00 00 		.p2align	2
+ 679 001c 41          	.LEFDE2:
+ 680                 	.LSFDE4:
+ 681 001c 0E          		.4byte	.LEFDE4-.LASFDE4
+ 682 001d 0F          	.LASFDE4:
+ 683 001d 83          		.4byte	.Lframe0
+ 684 001e 01          		.4byte	.LFB4
+ 685 001e 00 00 00    		.4byte	.LFE4-.LFB4
+ 686                 		.1byte	0x4
+ 687                 		.4byte	.LCFI2-.LFB4
+ 688 0020 00 00 00 00 		.1byte	0xe
+ 689                 		.1byte	0x5
+ 690 0022 00 00 00 00 		.1byte	0x83
+ 691 0024 00 00 00 00 		.1byte	0x1
+ 692 0026 00 00 00 00 		.p2align	2
+ 693 0028 41          	.LEFDE4:
+ 694                 	.LSFDE6:
+ 695 0028 0E          		.4byte	.LEFDE6-.LASFDE6
+ 696 0029 05          	.LASFDE6:
+ 697 0029 83          		.4byte	.Lframe0
+ 698 002a 01          		.4byte	.LFB3
+ 699 002a 00 00 00    		.4byte	.LFE3-.LFB3
+ 700                 		.p2align	2
+ 701                 	.LEFDE6:
+ 702 002c 00 00 00 00 		.text
+ 703                 	.Letext0:
+ 704 002e 00 00 00 00 		.section	.debug_loc,"",@progbits
+ 705 0030 00 00 00 00 	.Ldebug_loc0:
+ 706 0032 00 00 00 00 	.LLST0:
+ 707                 		.4byte	.LFB5
+ 708                 		.4byte	.LCFI0
+ 709                 		.2byte	0x1
+ 710                 		.1byte	0x55
+ 711                 		.4byte	.LCFI0
+ 712                 		.4byte	.LFE5
+ 713                 		.2byte	0x2
+ 714 0000 00 00 00 00 		.1byte	0x75
+ 715 0002 00 00 00 00 		.1byte	0x6
+ 716 0004 00 01       		.4byte	0x0
+ 717 0005 55          		.4byte	0x0
+ 718 0005 00 00 00 00 	.LLST1:
+ 719 0007 00 00 00 00 		.4byte	.LFB2
+ 720 0009 00 02       		.4byte	.LCFI1
+ 721 000a 75          		.2byte	0x1
+ 722 000b 06          		.1byte	0x55
+ 723 000b 00 00 00 00 		.4byte	.LCFI1
+ 724 000d 00 00 00 00 		.4byte	.LFE2
+ 725                 		.2byte	0x2
+ 726 000f 00 00 00 00 		.1byte	0x75
+ 727 0011 00 00 00 00 		.1byte	0xf
+ 728 0013 00 01       		.4byte	0x0
+ 729 0014 55          		.4byte	0x0
+ 730 0015 00 00 00 00 	.LLST2:
+ 731 0017 00 00 00 00 		.4byte	.LVL0
+ 732 0019 00 02       		.4byte	.LVL2
+ 733 001a 75          		.2byte	0x1
+ 734 001a 0F          		.1byte	0x51
+ 735 001b 00 00 00 00 		.4byte	.LVL2
+ 736 001d 00 00 00 00 		.4byte	.LVL3
+ 737                 		.2byte	0x1
+ 738 001f 00 00 00 00 		.1byte	0x53
+ 739 0021 00 00 00 00 		.4byte	.LVL4
+ 740 0023 00 01       		.4byte	.LVL5
+ 741 0024 51          		.2byte	0x1
+ 742 0024 00 00 00 00 		.1byte	0x53
+ 743 0026 00 00 00 00 		.4byte	.LVL12
+ 744 0028 00 01       		.4byte	.LVL13
+ 745 0029 53          		.2byte	0x1
+ 746 002a 00 00 00 00 		.1byte	0x53
+ 747 002c 00 00 00 00 		.4byte	0x0
+ 748 002e 00 01       		.4byte	0x0
+ 749 002f 53          	.LLST3:
+ 750 002f 00 00 00 00 		.4byte	.LVL0
+ 751 0031 00 00 00 00 		.4byte	.LVL1
+ 752 0033 00 01       		.2byte	0x1
+ 753 0034 53          		.1byte	0x50
+ 754 0035 00 00 00 00 		.4byte	.LVL1
+ 755 0037 00 00 00 00 		.4byte	.LFE2
+ 756                 		.2byte	0x2
+ 757 0039 00 00 00 00 		.1byte	0x76
+ 758 003b 00 00 00 00 		.1byte	0xd
+ 759 003d 00 01       		.4byte	0x0
+ 760 003e 50          		.4byte	0x0
+ 761 003e 00 00 00 00 	.LLST4:
+ 762 0040 00 00 00 00 		.4byte	.LVL6
+ 763 0042 00 02       		.4byte	.LVL7
+ 764 0043 76          		.2byte	0x2
+ 765 0044 0D          		.1byte	0x76
+ 766 0044 00 00 00 00 		.1byte	0xc
+ 767 0046 00 00 00 00 		.4byte	.LVL9
+ 768                 		.4byte	.LVL10
+ 769 0048 00 00 00 00 		.2byte	0x2
+ 770 004a 00 00 00 00 		.1byte	0x76
+ 771 004c 00 02       		.1byte	0xc
+ 772 004d 76          		.4byte	.LVL11
+ 773 004e 0C          		.4byte	.LFE2
+ 774 004e 00 00 00 00 		.2byte	0x2
+ 775 0050 00 00 00 00 		.1byte	0x76
+ 776 0052 00 02       		.1byte	0xc
+ 777 0053 76          		.4byte	0x0
+ 778 0054 0C          		.4byte	0x0
+ 779 0054 00 00 00 00 	.LLST5:
+ 780 0056 00 00 00 00 		.4byte	.LVL8
+ 781 0058 00 02       		.4byte	.LVL10
+ 782 0059 76          		.2byte	0x2
+ 783 005a 0C          		.1byte	0x76
+ 784 005a 00 00 00 00 		.1byte	0xb
+ 785 005c 00 00 00 00 		.4byte	.LVL11
+ 786                 		.4byte	.LFE2
+ 787 005e 00 00 00 00 		.2byte	0x2
+ 788 0060 00 00 00 00 		.1byte	0x76
+ 789 0062 00 02       		.1byte	0xb
+ 790 0063 76          		.4byte	0x0
+ 791 0064 0B          		.4byte	0x0
+ 792 0064 00 00 00 00 	.LLST6:
+ 793 0066 00 00 00 00 		.4byte	.LFB4
+ 794 0068 00 02       		.4byte	.LCFI2
+ 795 0069 76          		.2byte	0x1
+ 796 006a 0B          		.1byte	0x55
+ 797 006a 00 00 00 00 		.4byte	.LCFI2
+ 798 006c 00 00 00 00 		.4byte	.LFE4
+ 799                 		.2byte	0x2
+ 800 006e 00 00 00 00 		.1byte	0x75
+ 801 0070 00 00 00 00 		.1byte	0x5
+ 802 0072 00 01       		.4byte	0x0
+ 803 0073 55          		.4byte	0x0
+ 804 0074 00 00 00 00 	.LLST7:
+ 805 0076 00 00 00 00 		.4byte	.LVL16
+ 806 0078 00 02       		.4byte	.LVL17
+ 807 0079 75          		.2byte	0x1
+ 808 0079 05          		.1byte	0x51
+ 809 007a 00 00 00 00 		.4byte	.LVL18
+ 810 007c 00 00 00 00 		.4byte	.LFE4
+ 811                 		.2byte	0x1
+ 812 007e 00 00 00 00 		.1byte	0x51
+ 813 0080 00 00 00 00 		.4byte	0x0
+ 814 0082 00 01       		.4byte	0x0
+ 815 0083 51          		.file 2 "C:/CSR_uEnergy_SDK-2.4.5.13/tools/include/CSR101x_A05/types.h"
+ 816 0083 00 00 00 00 		.file 3 "C:/CSR_uEnergy_SDK-2.4.5.13/tools/include/CSR101x_A05/uart.h"
+ 817 0085 00 00 00 00 		.file 4 "C:/CSR_uEnergy_SDK-2.4.5.13/tools/include/CSR101x_A05/timer.h"
+ 818 0087 00 01       		.file 5 "app_data_stream.h"
+ 819 0088 51          		.file 6 "./byte_queue.h"
+ 820 0089 00 00 00 00 		.file 7 "uartio.h"
+ 821 008b 00 00 00 00 		.section	.debug_info
+ 822                 		.4byte	0x58a
+ 823                 		.2byte	0x2
+ 824                 		.4byte	.Ldebug_abbrev0
+ 825                 		.1byte	0x4
+ 826                 		.1byte	0x1
+ 827                 		.4byte	.LASF69
+ 828                 		.1byte	0x1
+ 829 0000 00 00 05 8A 		.4byte	.LASF70
+ 830 0002 00 02       		.4byte	.LASF71
+ 831 0003 00 00 00 00 		.4byte	0x0
+ 832 0005 04          		.4byte	0x0
+ 833 0005 01          		.4byte	.Ldebug_ranges0+0x0
+ 834 0006 00 00 00 00 		.4byte	.Ldebug_line0
+ 835 0008 01          		.1byte	0x2
+ 836 0008 00 00 00 00 		.4byte	.LASF0
+ 837 000a 00 00 00 00 		.1byte	0x2
+ 838 000c 00 00 00 00 		.1byte	0x1e
+ 839 000e 00 00 00 00 		.4byte	0x34
+ 840 0010 00 00 00 00 		.1byte	0x3
+ 841 0012 00 00 00 00 		.1byte	0x2
+ 842 0014 02          		.1byte	0x8
+ 843 0015 00 00 00 00 		.4byte	.LASF2
+ 844 0017 02          		.1byte	0x2
+ 845 0017 1E          		.4byte	.LASF1
+ 846 0018 00 00 00 34 		.1byte	0x2
+ 847 001a 03          		.1byte	0x1f
+ 848 001a 02          		.4byte	0x46
+ 849 001b 08          		.1byte	0x3
+ 850 001b 00 00 00 00 		.1byte	0x2
+ 851 001d 02          		.1byte	0x7
+ 852 001e 00 00 00 00 		.4byte	.LASF3
+ 853 0020 02          		.1byte	0x3
+ 854 0020 1F          		.1byte	0x4
+ 855 0021 00 00 00 46 		.1byte	0x7
+ 856 0023 03          		.4byte	.LASF4
+ 857 0023 02          		.1byte	0x3
+ 858 0024 07          		.1byte	0x2
+ 859 0024 00 00 00 00 		.1byte	0x6
+ 860 0026 03          		.4byte	.LASF5
+ 861 0027 04          		.1byte	0x3
+ 862 0027 07          		.1byte	0x2
+ 863 0028 00 00 00 00 		.1byte	0x5
+ 864 002a 03          		.4byte	.LASF6
+ 865 002a 02          		.1byte	0x3
+ 866 002b 06          		.1byte	0x4
+ 867 002b 00 00 00 00 		.1byte	0x5
+ 868 002d 03          		.4byte	.LASF7
+ 869 002e 02          		.1byte	0x2
+ 870 002e 05          		.4byte	.LASF8
+ 871 002f 00 00 00 00 		.1byte	0x2
+ 872 0031 03          		.1byte	0x2a
+ 873 0031 04          		.4byte	0x74
+ 874 0032 05          		.1byte	0x3
+ 875 0032 00 00 00 00 		.1byte	0x2
+ 876 0034 02          		.1byte	0x7
+ 877 0035 00 00 00 00 		.4byte	.LASF9
+ 878 0037 02          		.1byte	0x4
+ 879 0037 2A          		.1byte	0x2
+ 880 0038 00 00 00 74 		.1byte	0x3
+ 881 003a 03          		.1byte	0x56
+ 882 003a 02          		.4byte	0x9c
+ 883 003b 07          		.1byte	0x5
+ 884 003b 00 00 00 00 		.4byte	.LASF10
+ 885 003d 04          		.1byte	0x0
+ 886 003e 02          		.1byte	0x5
+ 887 003e 03          		.4byte	.LASF11
+ 888 003f 56          		.1byte	0x1
+ 889 003f 00 00 00 9C 		.1byte	0x5
+ 890 0041 05          		.4byte	.LASF12
+ 891 0042 00 00 00 00 		.1byte	0x2
+ 892 0044 00          		.1byte	0x5
+ 893 0044 05          		.4byte	.LASF13
+ 894 0045 00 00 00 00 		.1byte	0x3
+ 895 0047 01          		.1byte	0x0
+ 896 0047 05          		.1byte	0x4
+ 897 0048 00 00 00 00 		.1byte	0x2
+ 898 004a 02          		.1byte	0x3
+ 899 004a 05          		.1byte	0x6a
+ 900 004b 00 00 00 00 		.4byte	0xb1
+ 901 004d 03          		.1byte	0x5
+ 902 004d 00          		.4byte	.LASF14
+ 903 004e 04          		.1byte	0x1
+ 904 004e 02          		.1byte	0x5
+ 905 004f 03          		.4byte	.LASF15
+ 906 004f 6A          		.1byte	0x2
+ 907 0050 00 00 00 B1 		.1byte	0x0
+ 908 0052 05          		.1byte	0x6
+ 909 0052 00 00 00 00 		.1byte	0x2
+ 910 0054 01          		.1byte	0x7
+ 911 0055 05          		.1byte	0x2
+ 912 0055 00 00 00 00 		.4byte	0x3b
+ 913 0057 02          		.1byte	0x8
+ 914 0058 00          		.1byte	0x2
+ 915 0058 06          		.1byte	0x7
+ 916 0059 02          		.1byte	0x2
+ 917 0059 07          		.4byte	.LASF16
+ 918 005a 02          		.1byte	0x4
+ 919 005a 00 00 00 3B 		.1byte	0x1f
+ 920 005c 08          		.4byte	0x3b
+ 921 005d 02          		.1byte	0x7
+ 922 005d 07          		.1byte	0x2
+ 923 005e 02          		.4byte	0x29
+ 924 005e 00 00 00 00 		.1byte	0x4
+ 925 0060 04          		.1byte	0x2
+ 926 0061 1F          		.1byte	0x5
+ 927 0061 00 00 00 3B 		.1byte	0x39
+ 928 0063 07          		.4byte	0x10a
+ 929 0064 02          		.1byte	0x5
+ 930 0064 00 00 00 29 		.4byte	.LASF17
+ 931 0066 04          		.1byte	0x1
+ 932 0067 02          		.1byte	0x5
+ 933 0067 05          		.4byte	.LASF18
+ 934 0068 39          		.1byte	0x2
+ 935 0068 00 00 01 0A 		.1byte	0x5
+ 936 006a 05          		.4byte	.LASF19
+ 937 006b 00 00 00 00 		.1byte	0x3
+ 938 006d 01          		.1byte	0x5
+ 939 006d 05          		.4byte	.LASF20
+ 940 006e 00 00 00 00 		.1byte	0x4
+ 941 0070 02          		.1byte	0x5
+ 942 0070 05          		.4byte	.LASF21
+ 943 0071 00 00 00 00 		.1byte	0xd0,0x0
+ 944 0073 03          		.1byte	0x5
+ 945 0073 05          		.4byte	.LASF22
+ 946 0074 00 00 00 00 		.1byte	0xd1,0x0
+ 947 0076 04          		.1byte	0x5
+ 948 0076 05          		.4byte	.LASF23
+ 949 0077 00 00 00 00 		.1byte	0xd2,0x0
+ 950 0079 D0 00       		.1byte	0x5
+ 951 007a 05          		.4byte	.LASF24
+ 952 007a 00 00 00 00 		.1byte	0xd3,0x0
+ 953 007c D1 00       		.1byte	0x0
+ 954 007d 05          		.1byte	0x4
+ 955 007e 00 00 00 00 		.1byte	0x2
+ 956 0080 D2 00       		.1byte	0x5
+ 957 0081 05          		.1byte	0x45
+ 958 0081 00 00 00 00 		.4byte	0x12b
+ 959 0083 D3 00       		.1byte	0x5
+ 960 0084 00          		.4byte	.LASF25
+ 961 0085 04          		.1byte	0x0
+ 962 0085 02          		.1byte	0x5
+ 963 0086 05          		.4byte	.LASF26
+ 964 0086 45          		.1byte	0x1
+ 965 0087 00 00 01 2B 		.1byte	0x5
+ 966 0089 05          		.4byte	.LASF27
+ 967 0089 00 00 00 00 		.1byte	0x2
+ 968 008b 00          		.1byte	0x5
+ 969 008c 05          		.4byte	.LASF28
+ 970 008c 00 00 00 00 		.1byte	0x3
+ 971 008e 01          		.1byte	0x0
+ 972 008f 05          		.1byte	0x2
+ 973 008f 00 00 00 00 		.4byte	.LASF29
+ 974 0091 02          		.1byte	0x5
+ 975 0092 05          		.1byte	0x49
+ 976 0092 00 00 00 00 		.4byte	0x10a
+ 977 0094 03          		.1byte	0x9
+ 978 0095 00          		.1byte	0x2
+ 979 0095 02          		.1byte	0x5
+ 980 0096 00 00 00 00 		.ascii "int\000"
+ 981 0098 05          		.1byte	0xa
+ 982 0098 49          		.1byte	0x1
+ 983 0099 00 00 01 0A 		.4byte	.LASF72
+ 984 009b 09          		.1byte	0x1
+ 985 009b 02          		.2byte	0x179
+ 986 009c 05          		.1byte	0x1
+ 987 009c 69 6E 74 00 		.4byte	.LFB5
+ 988 009e 0A          		.4byte	.LFE5
+ 989 009f 01          		.4byte	.LLST0
+ 990 009f 00 00 00 00 		.1byte	0xb
+ 991 00a1 01          		.4byte	.LASF73
+ 992 00a2 01 79       		.1byte	0x1
+ 993 00a3 01          		.1byte	0x71
+ 994 00a3 00 00 00 00 		.1byte	0x1
+ 995 00a5 00 00 00 00 		.4byte	0x3b
+ 996 00a7 00 00 00 00 		.4byte	.LFB2
+ 997 00a9 0B          		.4byte	.LFE2
+ 998 00aa 00 00 00 00 		.4byte	.LLST1
+ 999 00ac 01          		.4byte	0x231
+ 1000 00ac 71          		.1byte	0xc
+ 1001 00ad 01          		.4byte	.LASF30
+ 1002 00ad 00 00 00 3B 		.1byte	0x1
+ 1003 00af 00 00 00 00 		.1byte	0x6e
+ 1004 00b1 00 00 00 00 		.4byte	0xb1
+ 1005 00b3 00 00 00 00 		.4byte	.LLST2
+ 1006 00b5 00 00 02 31 		.1byte	0xc
+ 1007 00b7 0C          		.4byte	.LASF31
+ 1008 00b8 00 00 00 00 		.1byte	0x1
+ 1009 00ba 01          		.1byte	0x6f
+ 1010 00ba 6E          		.4byte	0x3b
+ 1011 00bb 00 00 00 B1 		.4byte	.LLST3
+ 1012 00bd 00 00 00 00 		.1byte	0xd
+ 1013 00bf 0C          		.4byte	.LASF32
+ 1014 00bf 00 00 00 00 		.1byte	0x1
+ 1015 00c1 01          		.1byte	0x70
+ 1016 00c2 6F          		.4byte	0xb3
+ 1017 00c2 00 00 00 3B 		.1byte	0x2
+ 1018 00c4 00 00 00 00 		.1byte	0x91
+ 1019 00c6 0D          		.1byte	0x0
+ 1020 00c7 00 00 00 00 		.1byte	0xe
+ 1021 00c9 01          		.4byte	.LASF40
+ 1022 00c9 70          		.1byte	0x1
+ 1023 00ca 00 00 00 B3 		.1byte	0x73
+ 1024 00cc 02          		.4byte	0xc7
+ 1025 00cc 91          		.1byte	0xf
+ 1026 00cd 00          		.4byte	.LASF33
+ 1027 00cd 0E          		.1byte	0x1
+ 1028 00ce 00 00 00 00 		.1byte	0x81
+ 1029 00d0 01          		.4byte	0x231
+ 1030 00d0 73          		.1byte	0x2
+ 1031 00d1 00 00 00 C7 		.1byte	0x76
+ 1032 00d3 0F          		.1byte	0x4
+ 1033 00d3 00 00 00 00 		.1byte	0x10
+ 1034 00d5 01          		.4byte	.LBB2
+ 1035 00d6 81          		.4byte	.LBE2
+ 1036 00d6 00 00 02 31 		.4byte	0x1de
+ 1037 00d8 02          		.1byte	0xf
+ 1038 00d9 76          		.4byte	.LASF34
+ 1039 00d9 04          		.1byte	0x1
+ 1040 00da 10          		.1byte	0xa2
+ 1041 00da 00 00 00 00 		.4byte	0x241
+ 1042 00dc 00 00 00 00 		.1byte	0x2
+ 1043 00de 00 00 01 DE 		.1byte	0x76
+ 1044 00e0 0F          		.1byte	0x7
+ 1045 00e1 00 00 00 00 		.1byte	0xf
+ 1046 00e3 01          		.4byte	.LASF35
+ 1047 00e3 A2          		.1byte	0x1
+ 1048 00e4 00 00 02 41 		.1byte	0xa2
+ 1049 00e6 02          		.4byte	0x251
+ 1050 00e6 76          		.1byte	0x2
+ 1051 00e7 07          		.1byte	0x76
+ 1052 00e7 0F          		.1byte	0x5
+ 1053 00e8 00 00 00 00 		.1byte	0x0
+ 1054 00ea 01          		.1byte	0x10
+ 1055 00ea A2          		.4byte	.LBB3
+ 1056 00eb 00 00 02 51 		.4byte	.LBE3
+ 1057 00ed 02          		.4byte	0x209
+ 1058 00ed 76          		.1byte	0xf
+ 1059 00ee 05          		.4byte	.LASF36
+ 1060 00ee 00          		.1byte	0x1
+ 1061 00ef 10          		.1byte	0xd2
+ 1062 00ef 00 00 00 00 		.4byte	0x268
+ 1063 00f1 00 00 00 00 		.1byte	0x2
+ 1064 00f3 00 00 02 09 		.1byte	0x76
+ 1065 00f5 0F          		.1byte	0x7
+ 1066 00f6 00 00 00 00 		.1byte	0x11
+ 1067 00f8 01          		.4byte	.LASF37
+ 1068 00f8 D2          		.1byte	0x1
+ 1069 00f9 00 00 02 68 		.1byte	0xd2
+ 1070 00fb 02          		.4byte	0x3b
+ 1071 00fb 76          		.4byte	.LLST4
+ 1072 00fc 07          		.1byte	0x0
+ 1073 00fc 11          		.1byte	0x12
+ 1074 00fd 00 00 00 00 		.4byte	.LBB4
+ 1075 00ff 01          		.4byte	.LBE4
+ 1076 00ff D2          		.1byte	0xf
+ 1077 0100 00 00 00 3B 		.4byte	.LASF37
+ 1078 0102 00 00 00 00 		.1byte	0x1
+ 1079 0104 00          		.1byte	0xe4
+ 1080 0104 12          		.4byte	0x268
+ 1081 0105 00 00 00 00 		.1byte	0x2
+ 1082 0107 00 00 00 00 		.1byte	0x76
+ 1083 0109 0F          		.1byte	0x7
+ 1084 0109 00 00 00 00 		.1byte	0x11
+ 1085 010b 01          		.4byte	.LASF38
+ 1086 010c E4          		.1byte	0x1
+ 1087 010c 00 00 02 68 		.1byte	0xe5
+ 1088 010e 02          		.4byte	0x3b
+ 1089 010f 76          		.4byte	.LLST5
+ 1090 010f 07          		.1byte	0x0
+ 1091 0110 11          		.1byte	0x0
+ 1092 0110 00 00 00 00 		.1byte	0x13
+ 1093 0112 01          		.4byte	0x29
+ 1094 0113 E5          		.4byte	0x241
+ 1095 0113 00 00 00 3B 		.1byte	0x14
+ 1096 0115 00 00 00 00 		.4byte	0xb9
+ 1097 0117 00          		.1byte	0x0
+ 1098 0118 00          		.1byte	0x0
+ 1099 0118 13          		.1byte	0x13
+ 1100 0119 00 00 00 29 		.4byte	0x29
+ 1101 011b 00 00 02 41 		.4byte	0x251
+ 1102 011d 14          		.1byte	0x14
+ 1103 011d 00 00 00 B9 		.4byte	0xb9
+ 1104 011f 00          		.1byte	0x2
+ 1105 0120 00          		.1byte	0x0
+ 1106 0120 13          		.1byte	0x13
+ 1107 0121 00 00 00 29 		.4byte	0x261
+ 1108 0123 00 00 02 51 		.4byte	0x261
+ 1109 0125 14          		.1byte	0x14
+ 1110 0125 00 00 00 B9 		.4byte	0xb9
+ 1111 0127 02          		.1byte	0x1
+ 1112 0128 00          		.1byte	0x0
+ 1113 0128 13          		.1byte	0x3
+ 1114 0129 00 00 02 61 		.1byte	0x2
+ 1115 012b 00 00 02 61 		.1byte	0x8
+ 1116 012d 14          		.4byte	.LASF39
+ 1117 012d 00 00 00 B9 		.1byte	0x13
+ 1118 012f 01          		.4byte	0x261
+ 1119 0130 00          		.4byte	0x278
+ 1120 0130 03          		.1byte	0x14
+ 1121 0131 02          		.4byte	0xb9
+ 1122 0131 08          		.1byte	0x3
+ 1123 0132 00 00 00 00 		.1byte	0x0
+ 1124 0134 13          		.1byte	0x15
+ 1125 0134 00 00 02 61 		.1byte	0x1
+ 1126 0136 00 00 02 78 		.4byte	.LASF74
+ 1127 0138 14          		.1byte	0x1
+ 1128 0139 00 00 00 B9 		.2byte	0x128
+ 1129 013b 03          		.1byte	0x1
+ 1130 013b 00          		.4byte	.LFB4
+ 1131 013c 15          		.4byte	.LFE4
+ 1132 013c 01          		.4byte	.LLST6
+ 1133 013d 00 00 00 00 		.4byte	0x2fc
+ 1134 013f 01          		.1byte	0x12
+ 1135 013f 01 28       		.4byte	.LBB5
+ 1136 0140 01          		.4byte	.LBE5
+ 1137 0141 00 00 00 00 		.1byte	0x16
+ 1138 0143 00 00 00 00 		.4byte	.LASF40
+ 1139 0145 00 00 00 00 		.1byte	0x1
+ 1140 0147 00 00 02 FC 		.2byte	0x12c
+ 1141 0149 12          		.4byte	0x29
+ 1142 0149 00 00 00 00 		.1byte	0x2
+ 1143 014b 00 00 00 00 		.1byte	0x76
+ 1144 014d 16          		.1byte	0x0
+ 1145 014e 00 00 00 00 		.1byte	0x12
+ 1146 0150 01          		.4byte	.LBB6
+ 1147 0150 01 2C       		.4byte	.LBE6
+ 1148 0151 00 00 00 29 		.1byte	0x17
+ 1149 0153 02          		.4byte	.LASF41
+ 1150 0154 76          		.1byte	0x1
+ 1151 0154 00          		.2byte	0x131
+ 1152 0155 12          		.4byte	0x69
+ 1153 0155 00 00 00 00 		.4byte	.LLST7
+ 1154 0157 00 00 00 00 		.1byte	0x10
+ 1155 0159 17          		.4byte	.LBB7
+ 1156 015a 00 00 00 00 		.4byte	.LBE7
+ 1157 015c 01          		.4byte	0x2e0
+ 1158 015c 01 31       		.1byte	0x16
+ 1159 015d 00 00 00 69 		.4byte	.LASF42
+ 1160 015f 00 00 00 00 		.1byte	0x1
+ 1161 0161 10          		.2byte	0x137
+ 1162 0162 00 00 00 00 		.4byte	0x30c
+ 1163 0164 00 00 00 00 		.1byte	0x2
+ 1164 0166 00 00 02 E0 		.1byte	0x76
+ 1165 0168 16          		.1byte	0x1
+ 1166 0168 00 00 00 00 		.1byte	0x0
+ 1167 016a 01          		.1byte	0x12
+ 1168 016b 01 37       		.4byte	.LBB8
+ 1169 016c 00 00 03 0C 		.4byte	.LBE8
+ 1170 016e 02          		.1byte	0x16
+ 1171 016e 76          		.4byte	.LASF42
+ 1172 016f 01          		.1byte	0x1
+ 1173 016f 00          		.2byte	0x141
+ 1174 0170 12          		.4byte	0x311
+ 1175 0170 00 00 00 00 		.1byte	0x2
+ 1176 0172 00 00 00 00 		.1byte	0x76
+ 1177 0174 16          		.1byte	0x1
+ 1178 0175 00 00 00 00 		.1byte	0x0
+ 1179 0177 01          		.1byte	0x0
+ 1180 0177 01 41       		.1byte	0x0
+ 1181 0178 00 00 03 11 		.1byte	0x0
+ 1182 017a 02          		.1byte	0x13
+ 1183 017b 76          		.4byte	0x29
+ 1184 017b 01          		.4byte	0x30c
+ 1185 017c 00          		.1byte	0x14
+ 1186 017c 00          		.4byte	0xb9
+ 1187 017d 00          		.1byte	0x1
+ 1188 017d 00          		.1byte	0x0
+ 1189 017e 13          		.1byte	0x18
+ 1190 017e 00 00 00 29 		.4byte	0x2fc
+ 1191 0180 00 00 03 0C 		.1byte	0x18
+ 1192 0182 14          		.4byte	0x241
+ 1193 0183 00 00 00 B9 		.1byte	0x19
+ 1194 0185 01          		.4byte	.LASF75
+ 1195 0185 00          		.1byte	0x1
+ 1196 0186 18          		.2byte	0x114
+ 1197 0186 00 00 02 FC 		.1byte	0x1
+ 1198 0188 18          		.4byte	.LFB3
+ 1199 0189 00 00 02 41 		.4byte	.LFE3
+ 1200 018b 19          		.1byte	0x1
+ 1201 018b 00 00 00 00 		.1byte	0x55
+ 1202 018d 01          		.1byte	0x13
+ 1203 018e 01 14       		.4byte	0x3b
+ 1204 018f 01          		.4byte	0x339
+ 1205 018f 00 00 00 00 		.1byte	0x14
+ 1206 0191 00 00 00 00 		.4byte	0xb9
+ 1207 0193 01          		.1byte	0x1f
+ 1208 0194 55          		.1byte	0x0
+ 1209 0194 13          		.1byte	0xf
+ 1210 0195 00 00 00 3B 		.4byte	.LASF43
+ 1211 0197 00 00 03 39 		.1byte	0x1
+ 1212 0199 14          		.1byte	0x2a
+ 1213 0199 00 00 00 B9 		.4byte	0x329
+ 1214 019b 1F          		.1byte	0x5
+ 1215 019c 00          		.1byte	0x3
+ 1216 019c 0F          		.4byte	rx_buffer
+ 1217 019d 00 00 00 00 		.1byte	0xf
+ 1218 019f 01          		.4byte	.LASF44
+ 1219 019f 2A          		.1byte	0x1
+ 1220 01a0 00 00 03 29 		.1byte	0x2d
+ 1221 01a2 05          		.4byte	0x329
+ 1222 01a2 03          		.1byte	0x5
+ 1223 01a3 00 00 00 00 		.1byte	0x3
+ 1224 01a5 0F          		.4byte	tx_buffer
+ 1225 01a5 00 00 00 00 		.1byte	0x13
+ 1226 01a7 01          		.4byte	0x261
+ 1227 01a8 2D          		.4byte	0x36b
+ 1228 01a8 00 00 03 29 		.1byte	0x14
+ 1229 01aa 05          		.4byte	0xb9
+ 1230 01ab 03          		.1byte	0xff
+ 1231 01ab 00 00 00 00 		.1byte	0x0
+ 1232 01ad 13          		.1byte	0x1a
+ 1233 01ae 00 00 02 61 		.4byte	.LASF45
+ 1234 01b0 00 00 03 6B 		.1byte	0x6
+ 1235 01b2 14          		.1byte	0x19
+ 1236 01b2 00 00 00 B9 		.4byte	0x35b
+ 1237 01b4 FF          		.1byte	0x1
+ 1238 01b5 00          		.1byte	0x5
+ 1239 01b5 1A          		.1byte	0x3
+ 1240 01b6 00 00 00 00 		.4byte	g_queue
+ 1241 01b8 06          		.1byte	0x1a
+ 1242 01b8 19          		.4byte	.LASF46
+ 1243 01b9 00 00 03 5B 		.1byte	0x5
+ 1244 01bb 01          		.1byte	0x30
+ 1245 01bb 05          		.4byte	0x3b
+ 1246 01bc 03          		.1byte	0x1
+ 1247 01bc 00 00 00 00 		.1byte	0x5
+ 1248 01be 1A          		.1byte	0x3
+ 1249 01bf 00 00 00 00 		.4byte	currentHeaterStatus
+ 1250 01c1 05          		.1byte	0x1a
+ 1251 01c1 30          		.4byte	.LASF47
+ 1252 01c2 00 00 00 3B 		.1byte	0x5
+ 1253 01c4 01          		.1byte	0x4a
+ 1254 01c4 05          		.4byte	0x12b
+ 1255 01c5 03          		.1byte	0x1
+ 1256 01c5 00 00 00 00 		.1byte	0x5
+ 1257 01c7 1A          		.1byte	0x3
+ 1258 01c8 00 00 00 00 		.4byte	heater_status
+ 1259 01ca 05          		.1byte	0x1a
+ 1260 01ca 4A          		.4byte	.LASF48
+ 1261 01cb 00 00 01 2B 		.1byte	0x5
+ 1262 01cd 01          		.1byte	0x50
+ 1263 01cd 05          		.4byte	0xbc
+ 1264 01ce 03          		.1byte	0x1
+ 1265 01ce 00 00 00 00 		.1byte	0x5
+ 1266 01d0 1A          		.1byte	0x3
+ 1267 01d1 00 00 00 00 		.4byte	receive_delay_tid
+ 1268 01d3 05          		.1byte	0x1a
+ 1269 01d3 50          		.4byte	.LASF49
+ 1270 01d4 00 00 00 BC 		.1byte	0x5
+ 1271 01d6 01          		.1byte	0x52
+ 1272 01d6 05          		.4byte	0x3b
+ 1273 01d7 03          		.1byte	0x1
+ 1274 01d7 00 00 00 00 		.1byte	0x5
+ 1275 01d9 1A          		.1byte	0x3
+ 1276 01da 00 00 00 00 		.4byte	meshONNotSleepTimeMin
+ 1277 01dc 05          		.1byte	0x1a
+ 1278 01dc 52          		.4byte	.LASF50
+ 1279 01dd 00 00 00 3B 		.1byte	0x5
+ 1280 01df 01          		.1byte	0x52
+ 1281 01df 05          		.4byte	0x3b
+ 1282 01e0 03          		.1byte	0x1
+ 1283 01e0 00 00 00 00 		.1byte	0x5
+ 1284 01e2 1A          		.1byte	0x3
+ 1285 01e3 00 00 00 00 		.4byte	meshOFFSleepTimeMin
+ 1286 01e5 05          		.1byte	0x1a
+ 1287 01e5 52          		.4byte	.LASF51
+ 1288 01e6 00 00 00 3B 		.1byte	0x5
+ 1289 01e8 01          		.1byte	0x53
+ 1290 01e8 05          		.4byte	0x3b
+ 1291 01e9 03          		.1byte	0x1
+ 1292 01e9 00 00 00 00 		.1byte	0x5
+ 1293 01eb 1A          		.1byte	0x3
+ 1294 01ec 00 00 00 00 		.4byte	clockMeshON_tid
+ 1295 01ee 05          		.1byte	0x1a
+ 1296 01ee 53          		.4byte	.LASF52
+ 1297 01ef 00 00 00 3B 		.1byte	0x5
+ 1298 01f1 01          		.1byte	0x53
+ 1299 01f1 05          		.4byte	0x3b
+ 1300 01f2 03          		.1byte	0x1
+ 1301 01f2 00 00 00 00 		.1byte	0x5
+ 1302 01f4 1A          		.1byte	0x3
+ 1303 01f5 00 00 00 00 		.4byte	clockMeshOFF_tid
+ 1304 01f7 05          		.1byte	0x1a
+ 1305 01f7 53          		.4byte	.LASF53
+ 1306 01f8 00 00 00 3B 		.1byte	0x7
+ 1307 01fa 01          		.1byte	0x1f
+ 1308 01fa 05          		.4byte	0x69
+ 1309 01fb 03          		.1byte	0x1
+ 1310 01fb 00 00 00 00 		.1byte	0x5
+ 1311 01fd 1A          		.1byte	0x3
+ 1312 01fe 00 00 00 00 		.4byte	idreq
+ 1313 0200 07          		.1byte	0x1a
+ 1314 0200 1F          		.4byte	.LASF54
+ 1315 0201 00 00 00 69 		.1byte	0x7
+ 1316 0203 01          		.1byte	0x20
+ 1317 0203 05          		.4byte	0x69
+ 1318 0204 03          		.1byte	0x1
+ 1319 0204 00 00 00 00 		.1byte	0x5
+ 1320 0206 1A          		.1byte	0x3
+ 1321 0207 00 00 00 00 		.4byte	continueToRecv
+ 1322 0209 07          		.1byte	0x1a
+ 1323 0209 20          		.4byte	.LASF55
+ 1324 020a 00 00 00 69 		.1byte	0x7
+ 1325 020c 01          		.1byte	0x25
+ 1326 020c 05          		.4byte	0x3b
+ 1327 020d 03          		.1byte	0x1
+ 1328 020d 00 00 00 00 		.1byte	0x5
+ 1329 020f 1A          		.1byte	0x3
+ 1330 0210 00 00 00 00 		.4byte	inputNumberOfSensor
+ 1331 0212 07          		.1byte	0x1a
+ 1332 0212 25          		.4byte	.LASF56
+ 1333 0213 00 00 00 3B 		.1byte	0x1
+ 1334 0215 01          		.1byte	0x2f
+ 1335 0215 05          		.4byte	0x3b
+ 1336 0216 03          		.1byte	0x1
+ 1337 0216 00 00 00 00 		.1byte	0x5
+ 1338 0218 1A          		.1byte	0x3
+ 1339 0219 00 00 00 00 		.4byte	txDataLength
+ 1340 021b 01          		.1byte	0x1a
+ 1341 021b 2F          		.4byte	.LASF57
+ 1342 021c 00 00 00 3B 		.1byte	0x1
+ 1343 021e 01          		.1byte	0x30
+ 1344 021e 05          		.4byte	0xbc
+ 1345 021f 03          		.1byte	0x1
+ 1346 021f 00 00 00 00 		.1byte	0x5
+ 1347 0221 1A          		.1byte	0x3
+ 1348 0222 00 00 00 00 		.4byte	endOfCmd_tid
+ 1349 0224 01          		.1byte	0x1b
+ 1350 0224 30          		.ascii "eof\000"
+ 1351 0225 00 00 00 BC 		.1byte	0x1
+ 1352 0227 01          		.1byte	0x32
+ 1353 0227 05          		.4byte	0x69
+ 1354 0228 03          		.1byte	0x1
+ 1355 0228 00 00 00 00 		.1byte	0x5
+ 1356 022a 1B          		.1byte	0x3
+ 1357 022b 65 6F 66 00 		.4byte	eof
+ 1358 022d 01          		.1byte	0x13
+ 1359 022d 32          		.4byte	0x261
+ 1360 022e 00 00 00 69 		.4byte	0x477
+ 1361 0230 01          		.1byte	0x14
+ 1362 0230 05          		.4byte	0xb9
+ 1363 0231 03          		.1byte	0x6
+ 1364 0231 00 00 00 00 		.1byte	0x0
+ 1365 0233 13          		.1byte	0x1a
+ 1366 0234 00 00 02 61 		.4byte	.LASF58
+ 1367 0236 00 00 04 77 		.1byte	0x1
+ 1368 0238 14          		.1byte	0x33
+ 1369 0238 00 00 00 B9 		.4byte	0x467
+ 1370 023a 06          		.1byte	0x1
+ 1371 023b 00          		.1byte	0x5
+ 1372 023b 1A          		.1byte	0x3
+ 1373 023c 00 00 00 00 		.4byte	start
+ 1374 023e 01          		.1byte	0x1a
+ 1375 023e 33          		.4byte	.LASF59
+ 1376 023f 00 00 04 67 		.1byte	0x1
+ 1377 0241 01          		.1byte	0x34
+ 1378 0241 05          		.4byte	0x467
+ 1379 0242 03          		.1byte	0x1
+ 1380 0242 00 00 00 00 		.1byte	0x5
+ 1381 0244 1A          		.1byte	0x3
+ 1382 0245 00 00 00 00 		.4byte	stop
+ 1383 0247 01          		.1byte	0x1a
+ 1384 0247 34          		.4byte	.LASF60
+ 1385 0248 00 00 04 67 		.1byte	0x1
+ 1386 024a 01          		.1byte	0x35
+ 1387 024a 05          		.4byte	0x467
+ 1388 024b 03          		.1byte	0x1
+ 1389 024b 00 00 00 00 		.1byte	0x5
+ 1390 024d 1A          		.1byte	0x3
+ 1391 024e 00 00 00 00 		.4byte	conreq
+ 1392 0250 01          		.1byte	0x13
+ 1393 0250 35          		.4byte	0x261
+ 1394 0251 00 00 04 67 		.4byte	0x4bd
+ 1395 0253 01          		.1byte	0x14
+ 1396 0253 05          		.4byte	0xb9
+ 1397 0254 03          		.1byte	0x2
+ 1398 0254 00 00 00 00 		.1byte	0x0
+ 1399 0256 13          		.1byte	0x1a
+ 1400 0257 00 00 02 61 		.4byte	.LASF61
+ 1401 0259 00 00 04 BD 		.1byte	0x1
+ 1402 025b 14          		.1byte	0x38
+ 1403 025b 00 00 00 B9 		.4byte	0x4ad
+ 1404 025d 02          		.1byte	0x1
+ 1405 025e 00          		.1byte	0x5
+ 1406 025e 1A          		.1byte	0x3
+ 1407 025f 00 00 00 00 		.4byte	sonxoffx
+ 1408 0261 01          		.1byte	0x13
+ 1409 0261 38          		.4byte	0x261
+ 1410 0262 00 00 04 AD 		.4byte	0x4df
+ 1411 0264 01          		.1byte	0x14
+ 1412 0264 05          		.4byte	0xb9
+ 1413 0265 03          		.1byte	0x8
+ 1414 0265 00 00 00 00 		.1byte	0x0
+ 1415 0267 13          		.1byte	0x1a
+ 1416 0268 00 00 02 61 		.4byte	.LASF62
+ 1417 026a 00 00 04 DF 		.1byte	0x1
+ 1418 026c 14          		.1byte	0x39
+ 1419 026c 00 00 00 B9 		.4byte	0x4cf
+ 1420 026e 08          		.1byte	0x1
+ 1421 026f 00          		.1byte	0x5
+ 1422 026f 1A          		.1byte	0x3
+ 1423 0270 00 00 00 00 		.4byte	devidreq
+ 1424 0272 01          		.1byte	0x13
+ 1425 0272 39          		.4byte	0x261
+ 1426 0273 00 00 04 CF 		.4byte	0x501
+ 1427 0275 01          		.1byte	0x14
+ 1428 0275 05          		.4byte	0xb9
+ 1429 0276 03          		.1byte	0x9
+ 1430 0276 00 00 00 00 		.1byte	0x0
+ 1431 0278 13          		.1byte	0x1a
+ 1432 0279 00 00 02 61 		.4byte	.LASF63
+ 1433 027b 00 00 05 01 		.1byte	0x1
+ 1434 027d 14          		.1byte	0x3a
+ 1435 027d 00 00 00 B9 		.4byte	0x4f1
+ 1436 027f 09          		.1byte	0x1
+ 1437 0280 00          		.1byte	0x5
+ 1438 0280 1A          		.1byte	0x3
+ 1439 0281 00 00 00 00 		.4byte	devidread
+ 1440 0283 01          		.1byte	0x13
+ 1441 0283 3A          		.4byte	0x261
+ 1442 0284 00 00 04 F1 		.4byte	0x523
+ 1443 0286 01          		.1byte	0x14
+ 1444 0286 05          		.4byte	0xb9
+ 1445 0287 03          		.1byte	0xa
+ 1446 0287 00 00 00 00 		.1byte	0x0
+ 1447 0289 13          		.1byte	0x1a
+ 1448 028a 00 00 02 61 		.4byte	.LASF64
+ 1449 028c 00 00 05 23 		.1byte	0x1
+ 1450 028e 14          		.1byte	0x3c
+ 1451 028e 00 00 00 B9 		.4byte	0x513
+ 1452 0290 0A          		.1byte	0x1
+ 1453 0291 00          		.1byte	0x5
+ 1454 0291 1A          		.1byte	0x3
+ 1455 0292 00 00 00 00 		.4byte	searchstop
+ 1456 0294 01          		.1byte	0x1a
+ 1457 0294 3C          		.4byte	.LASF65
+ 1458 0295 00 00 05 13 		.1byte	0x1
+ 1459 0297 01          		.1byte	0x3d
+ 1460 0297 05          		.4byte	0x4ad
+ 1461 0298 03          		.1byte	0x1
+ 1462 0298 00 00 00 00 		.1byte	0x5
+ 1463 029a 1A          		.1byte	0x3
+ 1464 029b 00 00 00 00 		.4byte	delete
+ 1465 029d 01          		.1byte	0x1a
+ 1466 029d 3D          		.4byte	.LASF66
+ 1467 029e 00 00 04 AD 		.1byte	0x1
+ 1468 02a0 01          		.1byte	0x3e
+ 1469 02a0 05          		.4byte	0x4f1
+ 1470 02a1 03          		.1byte	0x1
+ 1471 02a1 00 00 00 00 		.1byte	0x5
+ 1472 02a3 1A          		.1byte	0x3
+ 1473 02a4 00 00 00 00 		.4byte	removeall
+ 1474 02a6 01          		.1byte	0x1a
+ 1475 02a6 3E          		.4byte	.LASF67
+ 1476 02a7 00 00 04 F1 		.1byte	0x1
+ 1477 02a9 01          		.1byte	0x40
+ 1478 02a9 05          		.4byte	0x4cf
+ 1479 02aa 03          		.1byte	0x1
+ 1480 02aa 00 00 00 00 		.1byte	0x5
+ 1481 02ac 1A          		.1byte	0x3
+ 1482 02ad 00 00 00 00 		.4byte	getdata
+ 1483 02af 01          		.1byte	0x13
+ 1484 02af 40          		.4byte	0x261
+ 1485 02b0 00 00 04 CF 		.4byte	0x57b
+ 1486 02b2 01          		.1byte	0x14
+ 1487 02b2 05          		.4byte	0xb9
+ 1488 02b3 03          		.1byte	0x0
+ 1489 02b3 00 00 00 00 		.1byte	0x0
+ 1490 02b5 13          		.1byte	0x1a
+ 1491 02b6 00 00 02 61 		.4byte	.LASF68
+ 1492 02b8 00 00 05 7B 		.1byte	0x1
+ 1493 02ba 14          		.1byte	0x41
+ 1494 02ba 00 00 00 B9 		.4byte	0x56b
+ 1495 02bc 00          		.1byte	0x1
+ 1496 02bd 00          		.1byte	0x5
+ 1497 02bd 1A          		.1byte	0x3
+ 1498 02be 00 00 00 00 		.4byte	getdata0
+ 1499 02c0 01          		.1byte	0x0
+ 1500 02c0 41          		.section	.debug_abbrev
+ 1501 02c1 00 00 05 6B 		.1byte	0x1
+ 1502 02c3 01          		.1byte	0x11
+ 1503 02c3 05          		.1byte	0x1
+ 1504 02c4 03          		.1byte	0x25
+ 1505 02c4 00 00 00 00 		.1byte	0xe
+ 1506 02c6 00          		.1byte	0x13
+ 1507                 		.1byte	0xb
+ 1508 0000 01          		.1byte	0x3
+ 1509 0000 11          		.1byte	0xe
+ 1510 0001 01          		.1byte	0x1b
+ 1511 0001 25          		.1byte	0xe
+ 1512 0002 0E          		.1byte	0x11
+ 1513 0002 13          		.1byte	0x1
+ 1514 0003 0B          		.1byte	0x52
+ 1515 0003 03          		.1byte	0x1
+ 1516 0004 0E          		.1byte	0x55
+ 1517 0004 1B          		.1byte	0x6
+ 1518 0005 0E          		.1byte	0x10
+ 1519 0005 11          		.1byte	0x6
+ 1520 0006 01          		.1byte	0x0
+ 1521 0006 52          		.1byte	0x0
+ 1522 0007 01          		.1byte	0x2
+ 1523 0007 55          		.1byte	0x16
+ 1524 0008 06          		.1byte	0x0
+ 1525 0008 10          		.1byte	0x3
+ 1526 0009 06          		.1byte	0xe
+ 1527 0009 00          		.1byte	0x3a
+ 1528 000a 00          		.1byte	0xb
+ 1529 000a 02          		.1byte	0x3b
+ 1530 000b 16          		.1byte	0xb
+ 1531 000b 00          		.1byte	0x49
+ 1532 000c 03          		.1byte	0x13
+ 1533 000c 0E          		.1byte	0x0
+ 1534 000d 3A          		.1byte	0x0
+ 1535 000d 0B          		.1byte	0x3
+ 1536 000e 3B          		.1byte	0x24
+ 1537 000e 0B          		.1byte	0x0
+ 1538 000f 49          		.1byte	0xb
+ 1539 000f 13          		.1byte	0xb
+ 1540 0010 00          		.1byte	0x3e
+ 1541 0010 00          		.1byte	0xb
+ 1542 0011 03          		.1byte	0x3
+ 1543 0011 24          		.1byte	0xe
+ 1544 0012 00          		.1byte	0x0
+ 1545 0012 0B          		.1byte	0x0
+ 1546 0013 0B          		.1byte	0x4
+ 1547 0013 3E          		.1byte	0x4
+ 1548 0014 0B          		.1byte	0x1
+ 1549 0014 03          		.1byte	0xb
+ 1550 0015 0E          		.1byte	0xb
+ 1551 0015 00          		.1byte	0x3a
+ 1552 0016 00          		.1byte	0xb
+ 1553 0016 04          		.1byte	0x3b
+ 1554 0017 04          		.1byte	0xb
+ 1555 0017 01          		.1byte	0x1
+ 1556 0018 0B          		.1byte	0x13
+ 1557 0018 0B          		.1byte	0x0
+ 1558 0019 3A          		.1byte	0x0
+ 1559 0019 0B          		.1byte	0x5
+ 1560 001a 3B          		.1byte	0x28
+ 1561 001a 0B          		.1byte	0x0
+ 1562 001b 01          		.1byte	0x3
+ 1563 001b 13          		.1byte	0xe
+ 1564 001c 00          		.1byte	0x1c
+ 1565 001c 00          		.1byte	0xd
+ 1566 001d 05          		.1byte	0x0
+ 1567 001d 28          		.1byte	0x0
+ 1568 001e 00          		.1byte	0x6
+ 1569 001e 03          		.1byte	0xf
+ 1570 001f 0E          		.1byte	0x0
+ 1571 001f 1C          		.1byte	0xb
+ 1572 0020 0D          		.1byte	0xb
+ 1573 0020 00          		.1byte	0x0
+ 1574 0021 00          		.1byte	0x0
+ 1575 0021 06          		.1byte	0x7
+ 1576 0022 0F          		.1byte	0xf
+ 1577 0022 00          		.1byte	0x0
+ 1578 0023 0B          		.1byte	0xb
+ 1579 0023 0B          		.1byte	0xb
+ 1580 0024 00          		.1byte	0x49
+ 1581 0024 00          		.1byte	0x13
+ 1582 0025 07          		.1byte	0x0
+ 1583 0025 0F          		.1byte	0x0
+ 1584 0026 00          		.1byte	0x8
+ 1585 0026 0B          		.1byte	0x24
+ 1586 0027 0B          		.1byte	0x0
+ 1587 0027 49          		.1byte	0xb
+ 1588 0028 13          		.1byte	0xb
+ 1589 0028 00          		.1byte	0x3e
+ 1590 0029 00          		.1byte	0xb
+ 1591 0029 08          		.1byte	0x0
+ 1592 002a 24          		.1byte	0x0
+ 1593 002a 00          		.1byte	0x9
+ 1594 002b 0B          		.1byte	0x24
+ 1595 002b 0B          		.1byte	0x0
+ 1596 002c 3E          		.1byte	0xb
+ 1597 002c 0B          		.1byte	0xb
+ 1598 002d 00          		.1byte	0x3e
+ 1599 002d 00          		.1byte	0xb
+ 1600 002e 09          		.1byte	0x3
+ 1601 002e 24          		.1byte	0x8
+ 1602 002f 00          		.1byte	0x0
+ 1603 002f 0B          		.1byte	0x0
+ 1604 0030 0B          		.1byte	0xa
+ 1605 0030 3E          		.1byte	0x2e
+ 1606 0031 0B          		.1byte	0x0
+ 1607 0031 03          		.1byte	0x3f
+ 1608 0032 08          		.1byte	0xc
+ 1609 0032 00          		.1byte	0x3
+ 1610 0033 00          		.1byte	0xe
+ 1611 0033 0A          		.1byte	0x3a
+ 1612 0034 2E          		.1byte	0xb
+ 1613 0034 00          		.1byte	0x3b
+ 1614 0035 3F          		.1byte	0x5
+ 1615 0035 0C          		.1byte	0x27
+ 1616 0036 03          		.1byte	0xc
+ 1617 0036 0E          		.1byte	0x11
+ 1618 0037 3A          		.1byte	0x1
+ 1619 0037 0B          		.1byte	0x12
+ 1620 0038 3B          		.1byte	0x1
+ 1621 0038 05          		.1byte	0x40
+ 1622 0039 27          		.1byte	0x6
+ 1623 0039 0C          		.1byte	0x0
+ 1624 003a 11          		.1byte	0x0
+ 1625 003a 01          		.1byte	0xb
+ 1626 003b 12          		.1byte	0x2e
+ 1627 003b 01          		.1byte	0x1
+ 1628 003c 40          		.1byte	0x3
+ 1629 003c 06          		.1byte	0xe
+ 1630 003d 00          		.1byte	0x3a
+ 1631 003d 00          		.1byte	0xb
+ 1632 003e 0B          		.1byte	0x3b
+ 1633 003e 2E          		.1byte	0xb
+ 1634 003f 01          		.1byte	0x27
+ 1635 003f 03          		.1byte	0xc
+ 1636 0040 0E          		.1byte	0x49
+ 1637 0040 3A          		.1byte	0x13
+ 1638 0041 0B          		.1byte	0x11
+ 1639 0041 3B          		.1byte	0x1
+ 1640 0042 0B          		.1byte	0x12
+ 1641 0042 27          		.1byte	0x1
+ 1642 0043 0C          		.1byte	0x40
+ 1643 0043 49          		.1byte	0x6
+ 1644 0044 13          		.1byte	0x1
+ 1645 0044 11          		.1byte	0x13
+ 1646 0045 01          		.1byte	0x0
+ 1647 0045 12          		.1byte	0x0
+ 1648 0046 01          		.1byte	0xc
+ 1649 0046 40          		.1byte	0x5
+ 1650 0047 06          		.1byte	0x0
+ 1651 0047 01          		.1byte	0x3
+ 1652 0048 13          		.1byte	0xe
+ 1653 0048 00          		.1byte	0x3a
+ 1654 0049 00          		.1byte	0xb
+ 1655 0049 0C          		.1byte	0x3b
+ 1656 004a 05          		.1byte	0xb
+ 1657 004a 00          		.1byte	0x49
+ 1658 004b 03          		.1byte	0x13
+ 1659 004b 0E          		.1byte	0x2
+ 1660 004c 3A          		.1byte	0x6
+ 1661 004c 0B          		.1byte	0x0
+ 1662 004d 3B          		.1byte	0x0
+ 1663 004d 0B          		.1byte	0xd
+ 1664 004e 49          		.1byte	0x5
+ 1665 004e 13          		.1byte	0x0
+ 1666 004f 02          		.1byte	0x3
+ 1667 004f 06          		.1byte	0xe
+ 1668 0050 00          		.1byte	0x3a
+ 1669 0050 00          		.1byte	0xb
+ 1670 0051 0D          		.1byte	0x3b
+ 1671 0051 05          		.1byte	0xb
+ 1672 0052 00          		.1byte	0x49
+ 1673 0052 03          		.1byte	0x13
+ 1674 0053 0E          		.1byte	0x2
+ 1675 0053 3A          		.1byte	0xa
+ 1676 0054 0B          		.1byte	0x0
+ 1677 0054 3B          		.1byte	0x0
+ 1678 0055 0B          		.1byte	0xe
+ 1679 0055 49          		.1byte	0x34
+ 1680 0056 13          		.1byte	0x0
+ 1681 0056 02          		.1byte	0x3
+ 1682 0057 0A          		.1byte	0xe
+ 1683 0057 00          		.1byte	0x3a
+ 1684 0058 00          		.1byte	0xb
+ 1685 0058 0E          		.1byte	0x3b
+ 1686 0059 34          		.1byte	0xb
+ 1687 0059 00          		.1byte	0x49
+ 1688 005a 03          		.1byte	0x13
+ 1689 005a 0E          		.1byte	0x0
+ 1690 005b 3A          		.1byte	0x0
+ 1691 005b 0B          		.1byte	0xf
+ 1692 005c 3B          		.1byte	0x34
+ 1693 005c 0B          		.1byte	0x0
+ 1694 005d 49          		.1byte	0x3
+ 1695 005d 13          		.1byte	0xe
+ 1696 005e 00          		.1byte	0x3a
+ 1697 005e 00          		.1byte	0xb
+ 1698 005f 0F          		.1byte	0x3b
+ 1699 005f 34          		.1byte	0xb
+ 1700 0060 00          		.1byte	0x49
+ 1701 0060 03          		.1byte	0x13
+ 1702 0061 0E          		.1byte	0x2
+ 1703 0061 3A          		.1byte	0xa
+ 1704 0062 0B          		.1byte	0x0
+ 1705 0062 3B          		.1byte	0x0
+ 1706 0063 0B          		.1byte	0x10
+ 1707 0063 49          		.1byte	0xb
+ 1708 0064 13          		.1byte	0x1
+ 1709 0064 02          		.1byte	0x11
+ 1710 0065 0A          		.1byte	0x1
+ 1711 0065 00          		.1byte	0x12
+ 1712 0066 00          		.1byte	0x1
+ 1713 0066 10          		.1byte	0x1
+ 1714 0067 0B          		.1byte	0x13
+ 1715 0067 01          		.1byte	0x0
+ 1716 0068 11          		.1byte	0x0
+ 1717 0068 01          		.1byte	0x11
+ 1718 0069 12          		.1byte	0x34
+ 1719 0069 01          		.1byte	0x0
+ 1720 006a 01          		.1byte	0x3
+ 1721 006a 13          		.1byte	0xe
+ 1722 006b 00          		.1byte	0x3a
+ 1723 006b 00          		.1byte	0xb
+ 1724 006c 11          		.1byte	0x3b
+ 1725 006c 34          		.1byte	0xb
+ 1726 006d 00          		.1byte	0x49
+ 1727 006d 03          		.1byte	0x13
+ 1728 006e 0E          		.1byte	0x2
+ 1729 006e 3A          		.1byte	0x6
+ 1730 006f 0B          		.1byte	0x0
+ 1731 006f 3B          		.1byte	0x0
+ 1732 0070 0B          		.1byte	0x12
+ 1733 0070 49          		.1byte	0xb
+ 1734 0071 13          		.1byte	0x1
+ 1735 0071 02          		.1byte	0x11
+ 1736 0072 06          		.1byte	0x1
+ 1737 0072 00          		.1byte	0x12
+ 1738 0073 00          		.1byte	0x1
+ 1739 0073 12          		.1byte	0x0
+ 1740 0074 0B          		.1byte	0x0
+ 1741 0074 01          		.1byte	0x13
+ 1742 0075 11          		.1byte	0x1
+ 1743 0075 01          		.1byte	0x1
+ 1744 0076 12          		.1byte	0x49
+ 1745 0076 01          		.1byte	0x13
+ 1746 0077 00          		.1byte	0x1
+ 1747 0077 00          		.1byte	0x13
+ 1748 0078 13          		.1byte	0x0
+ 1749 0078 01          		.1byte	0x0
+ 1750 0079 01          		.1byte	0x14
+ 1751 0079 49          		.1byte	0x21
+ 1752 007a 13          		.1byte	0x0
+ 1753 007a 01          		.1byte	0x49
+ 1754 007b 13          		.1byte	0x13
+ 1755 007b 00          		.1byte	0x2f
+ 1756 007c 00          		.1byte	0xb
+ 1757 007c 14          		.1byte	0x0
+ 1758 007d 21          		.1byte	0x0
+ 1759 007d 00          		.1byte	0x15
+ 1760 007e 49          		.1byte	0x2e
+ 1761 007e 13          		.1byte	0x1
+ 1762 007f 2F          		.1byte	0x3f
+ 1763 007f 0B          		.1byte	0xc
+ 1764 0080 00          		.1byte	0x3
+ 1765 0080 00          		.1byte	0xe
+ 1766 0081 15          		.1byte	0x3a
+ 1767 0081 2E          		.1byte	0xb
+ 1768 0082 01          		.1byte	0x3b
+ 1769 0082 3F          		.1byte	0x5
+ 1770 0083 0C          		.1byte	0x27
+ 1771 0083 03          		.1byte	0xc
+ 1772 0084 0E          		.1byte	0x11
+ 1773 0084 3A          		.1byte	0x1
+ 1774 0085 0B          		.1byte	0x12
+ 1775 0085 3B          		.1byte	0x1
+ 1776 0086 05          		.1byte	0x40
+ 1777 0086 27          		.1byte	0x6
+ 1778 0087 0C          		.1byte	0x1
+ 1779 0087 11          		.1byte	0x13
+ 1780 0088 01          		.1byte	0x0
+ 1781 0088 12          		.1byte	0x0
+ 1782 0089 01          		.1byte	0x16
+ 1783 0089 40          		.1byte	0x34
+ 1784 008a 06          		.1byte	0x0
+ 1785 008a 01          		.1byte	0x3
+ 1786 008b 13          		.1byte	0xe
+ 1787 008b 00          		.1byte	0x3a
+ 1788 008c 00          		.1byte	0xb
+ 1789 008c 16          		.1byte	0x3b
+ 1790 008d 34          		.1byte	0x5
+ 1791 008d 00          		.1byte	0x49
+ 1792 008e 03          		.1byte	0x13
+ 1793 008e 0E          		.1byte	0x2
+ 1794 008f 3A          		.1byte	0xa
+ 1795 008f 0B          		.1byte	0x0
+ 1796 0090 3B          		.1byte	0x0
+ 1797 0090 05          		.1byte	0x17
+ 1798 0091 49          		.1byte	0x34
+ 1799 0091 13          		.1byte	0x0
+ 1800 0092 02          		.1byte	0x3
+ 1801 0092 0A          		.1byte	0xe
+ 1802 0093 00          		.1byte	0x3a
+ 1803 0093 00          		.1byte	0xb
+ 1804 0094 17          		.1byte	0x3b
+ 1805 0094 34          		.1byte	0x5
+ 1806 0095 00          		.1byte	0x49
+ 1807 0095 03          		.1byte	0x13
+ 1808 0096 0E          		.1byte	0x2
+ 1809 0096 3A          		.1byte	0x6
+ 1810 0097 0B          		.1byte	0x0
+ 1811 0097 3B          		.1byte	0x0
+ 1812 0098 05          		.1byte	0x18
+ 1813 0098 49          		.1byte	0x26
+ 1814 0099 13          		.1byte	0x0
+ 1815 0099 02          		.1byte	0x49
+ 1816 009a 06          		.1byte	0x13
+ 1817 009a 00          		.1byte	0x0
+ 1818 009b 00          		.1byte	0x0
+ 1819 009b 18          		.1byte	0x19
+ 1820 009c 26          		.1byte	0x2e
+ 1821 009c 00          		.1byte	0x0
+ 1822 009d 49          		.1byte	0x3
+ 1823 009d 13          		.1byte	0xe
+ 1824 009e 00          		.1byte	0x3a
+ 1825 009e 00          		.1byte	0xb
+ 1826 009f 19          		.1byte	0x3b
+ 1827 009f 2E          		.1byte	0x5
+ 1828 00a0 00          		.1byte	0x27
+ 1829 00a0 03          		.1byte	0xc
+ 1830 00a1 0E          		.1byte	0x11
+ 1831 00a1 3A          		.1byte	0x1
+ 1832 00a2 0B          		.1byte	0x12
+ 1833 00a2 3B          		.1byte	0x1
+ 1834 00a3 05          		.1byte	0x40
+ 1835 00a3 27          		.1byte	0xa
+ 1836 00a4 0C          		.1byte	0x0
+ 1837 00a4 11          		.1byte	0x0
+ 1838 00a5 01          		.1byte	0x1a
+ 1839 00a5 12          		.1byte	0x34
+ 1840 00a6 01          		.1byte	0x0
+ 1841 00a6 40          		.1byte	0x3
+ 1842 00a7 0A          		.1byte	0xe
+ 1843 00a7 00          		.1byte	0x3a
+ 1844 00a8 00          		.1byte	0xb
+ 1845 00a8 1A          		.1byte	0x3b
+ 1846 00a9 34          		.1byte	0xb
+ 1847 00a9 00          		.1byte	0x49
+ 1848 00aa 03          		.1byte	0x13
+ 1849 00aa 0E          		.1byte	0x3f
+ 1850 00ab 3A          		.1byte	0xc
+ 1851 00ab 0B          		.1byte	0x2
+ 1852 00ac 3B          		.1byte	0xa
+ 1853 00ac 0B          		.1byte	0x0
+ 1854 00ad 49          		.1byte	0x0
+ 1855 00ad 13          		.1byte	0x1b
+ 1856 00ae 3F          		.1byte	0x34
+ 1857 00ae 0C          		.1byte	0x0
+ 1858 00af 02          		.1byte	0x3
+ 1859 00af 0A          		.1byte	0x8
+ 1860 00b0 00          		.1byte	0x3a
+ 1861 00b0 00          		.1byte	0xb
+ 1862 00b1 1B          		.1byte	0x3b
+ 1863 00b1 34          		.1byte	0xb
+ 1864 00b2 00          		.1byte	0x49
+ 1865 00b2 03          		.1byte	0x13
+ 1866 00b3 08          		.1byte	0x3f
+ 1867 00b3 3A          		.1byte	0xc
+ 1868 00b4 0B          		.1byte	0x2
+ 1869 00b4 3B          		.1byte	0xa
+ 1870 00b5 0B          		.1byte	0x0
+ 1871 00b5 49          		.1byte	0x0
+ 1872 00b6 13          		.1byte	0x0
+ 1873 00b6 3F          		.section	.debug_pubnames,"",@progbits
+ 1874 00b7 0C          		.4byte	0x1bc
+ 1875 00b7 02          		.2byte	0x2
+ 1876 00b8 0A          		.4byte	.Ldebug_info0
+ 1877 00b8 00          		.4byte	0x58e
+ 1878 00b9 00          		.4byte	0x13d
+ 1879 00b9 00          		.ascii "uartInit\000"
+ 1880                 		.4byte	0x278
+ 1881 0000 00 00 01 BC 		.ascii "sendPendingData\000"
+ 1882 0002 00 02       		.4byte	0x36b
+ 1883 0003 00 00 00 00 		.ascii "g_queue\000"
+ 1884 0005 00 00 05 8E 		.4byte	0x37d
+ 1885 0007 00 00 01 3D 		.ascii "currentHeaterStatus\000"
+ 1886 0009 75 61 72 74 		.4byte	0x38f
+ 1886      49 6E 69 74 
+ 1886      00 
+ 1887 000d 00 00 02 78 		.ascii "heater_status\000"
+ 1888 000f 73 65 6E 64 		.4byte	0x3a1
+ 1888      50 65 6E 64 
+ 1888      69 6E 67 44 
+ 1888      61 74 61 00 
+ 1889 0017 00 00 03 6B 		.ascii "receive_delay_tid\000"
+ 1890 0019 67 5F 71 75 		.4byte	0x3b3
+ 1890      65 75 65 00 
+ 1891 001d 00 00 03 7D 		.ascii "meshONNotSleepTimeMin\000"
+ 1892 001f 63 75 72 72 		.4byte	0x3c5
+ 1892      65 6E 74 48 
+ 1892      65 61 74 65 
+ 1892      72 53 74 61 
+ 1892      74 75 73 00 
+ 1893 0029 00 00 03 8F 		.ascii "meshOFFSleepTimeMin\000"
+ 1894 002b 68 65 61 74 		.4byte	0x3d7
+ 1894      65 72 5F 73 
+ 1894      74 61 74 75 
+ 1894      73 00 
+ 1895 0032 00 00 03 A1 		.ascii "clockMeshON_tid\000"
+ 1896 0034 72 65 63 65 		.4byte	0x3e9
+ 1896      69 76 65 5F 
+ 1896      64 65 6C 61 
+ 1896      79 5F 74 69 
+ 1896      64 00 
+ 1897 003d 00 00 03 B3 		.ascii "clockMeshOFF_tid\000"
+ 1898 003f 6D 65 73 68 		.4byte	0x3fb
+ 1898      4F 4E 4E 6F 
+ 1898      74 53 6C 65 
+ 1898      65 70 54 69 
+ 1898      6D 65 4D 69 
+ 1899 004a 00 00 03 C5 		.ascii "idreq\000"
+ 1900 004c 6D 65 73 68 		.4byte	0x40d
+ 1900      4F 46 46 53 
+ 1900      6C 65 65 70 
+ 1900      54 69 6D 65 
+ 1900      4D 69 6E 00 
+ 1901 0056 00 00 03 D7 		.ascii "continueToRecv\000"
+ 1902 0058 63 6C 6F 63 		.4byte	0x41f
+ 1902      6B 4D 65 73 
+ 1902      68 4F 4E 5F 
+ 1902      74 69 64 00 
+ 1903 0060 00 00 03 E9 		.ascii "inputNumberOfSensor\000"
+ 1904 0062 63 6C 6F 63 		.4byte	0x431
+ 1904      6B 4D 65 73 
+ 1904      68 4F 46 46 
+ 1904      5F 74 69 64 
+ 1904      00 
+ 1905 006b 00 00 03 FB 		.ascii "txDataLength\000"
+ 1906 006d 69 64 72 65 		.4byte	0x443
+ 1906      71 00 
+ 1907 0070 00 00 04 0D 		.ascii "endOfCmd_tid\000"
+ 1908 0072 63 6F 6E 74 		.4byte	0x455
+ 1908      69 6E 75 65 
+ 1908      54 6F 52 65 
+ 1908      63 76 00 
+ 1909 0079 00 00 04 1F 		.ascii "eof\000"
+ 1910 007b 69 6E 70 75 		.4byte	0x477
+ 1910      74 4E 75 6D 
+ 1910      62 65 72 4F 
+ 1910      66 53 65 6E 
+ 1910      73 6F 72 00 
+ 1911 0085 00 00 04 31 		.ascii "start\000"
+ 1912 0087 74 78 44 61 		.4byte	0x489
+ 1912      74 61 4C 65 
+ 1912      6E 67 74 68 
+ 1912      00 
+ 1913 008e 00 00 04 43 		.ascii "stop\000"
+ 1914 0090 65 6E 64 4F 		.4byte	0x49b
+ 1914      66 43 6D 64 
+ 1914      5F 74 69 64 
+ 1914      00 
+ 1915 0096 00 00 04 55 		.ascii "conreq\000"
+ 1916 0098 65 6F 66 00 		.4byte	0x4bd
+ 1917 009a 00 00 04 77 		.ascii "sonxoffx\000"
+ 1918 009c 73 74 61 72 		.4byte	0x4df
+ 1918      74 00 
+ 1919 009f 00 00 04 89 		.ascii "devidreq\000"
+ 1920 00a1 73 74 6F 70 		.4byte	0x501
+ 1920      00 
+ 1921 00a4 00 00 04 9B 		.ascii "devidread\000"
+ 1922 00a6 63 6F 6E 72 		.4byte	0x523
+ 1922      65 71 00 
+ 1923 00a9 00 00 04 BD 		.ascii "searchstop\000"
+ 1924 00ab 73 6F 6E 78 		.4byte	0x535
+ 1924      6F 66 66 78 
+ 1924      00 
+ 1925 00b0 00 00 04 DF 		.ascii "delete\000"
+ 1926 00b2 64 65 76 69 		.4byte	0x547
+ 1926      64 72 65 71 
+ 1926      00 
+ 1927 00b6 00 00 05 01 		.ascii "removeall\000"
+ 1928 00b8 64 65 76 69 		.4byte	0x559
+ 1928      64 72 65 61 
+ 1928      64 00 
+ 1929 00bd 00 00 05 23 		.ascii "getdata\000"
+ 1930 00bf 73 65 61 72 		.4byte	0x57b
+ 1930      63 68 73 74 
+ 1930      6F 70 00 
+ 1931 00c5 00 00 05 35 		.ascii "getdata0\000"
+ 1932 00c7 64 65 6C 65 		.4byte	0x0
+ 1932      74 65 00 
+ 1933 00ca 00 00 05 47 		.section	.debug_aranges,"",@progbits
+ 1934 00cc 72 65 6D 6F 		.4byte	0x34
+ 1934      76 65 61 6C 
+ 1934      6C 00 
+ 1935 00d1 00 00 05 59 		.2byte	0x2
+ 1936 00d3 67 65 74 64 		.4byte	.Ldebug_info0
+ 1936      61 74 61 00 
+ 1937 00d7 00 00 05 7B 		.1byte	0x4
+ 1938 00d9 67 65 74 64 		.1byte	0x0
+ 1938      61 74 61 30 
+ 1938      00 
+ 1939 00de 00 00 00 00 		.2byte	0x0
+ 1940                 		.2byte	0x0
+ 1941 0000 00 00 00 34 		.4byte	.LFB5
+ 1942 0002 00 02       		.4byte	.LFE5-.LFB5
+ 1943 0003 00 00 00 00 		.4byte	.LFB2
+ 1944 0005 04          		.4byte	.LFE2-.LFB2
+ 1945 0005 00          		.4byte	.LFB4
+ 1946 0006 00 00       		.4byte	.LFE4-.LFB4
+ 1947 0007 00 00       		.4byte	.LFB3
+ 1948 0008 00 00 00 00 		.4byte	.LFE3-.LFB3
+ 1949 000a 00 00 00 00 		.4byte	0x0
+ 1950 000c 00 00 00 00 		.4byte	0x0
+ 1951 000e 00 00 00 00 		.section	.debug_ranges,"",@progbits
+ 1952 0010 00 00 00 00 	.Ldebug_ranges0:
+ 1953 0012 00 00 00 00 		.4byte	.Ltext0
+ 1954 0014 00 00 00 00 		.4byte	.Letext0
+ 1955 0016 00 00 00 00 		.4byte	.LFB5
+ 1956 0018 00 00 00 00 		.4byte	.LFE5
+ 1957 001a 00 00 00 00 		.4byte	.LFB2
+ 1958                 		.4byte	.LFE2
+ 1959                 		.4byte	.LFB4
+ 1960 0000 00 00 00 00 		.4byte	.LFE4
+ 1961 0002 00 00 00 00 		.4byte	.LFB3
+ 1962 0004 00 00 00 00 		.4byte	.LFE3
+ 1963 0006 00 00 00 00 		.4byte	0x0
+ 1964 0008 00 00 00 00 		.4byte	0x0
+ 1965 000a 00 00 00 00 		.section	.debug_str,"MS",@progbits,1
+ 1966 000c 00 00 00 00 	.LASF53:
+ 1967 000e 00 00 00 00 		.ascii "idreq\000"
+ 1968 0010 00 00 00 00 	.LASF13:
+ 1969 0012 00 00 00 00 		.ascii "UART_BUF_SIZE_BYTES_256\000"
+ 1970 0014 00 00 00 00 	.LASF37:
+ 1971 0016 00 00 00 00 		.ascii "devid\000"
+ 1972                 	.LASF34:
+ 1973                 		.ascii "sendData\000"
+ 1974 0000 69 64 72 65 	.LASF38:
+ 1974      71 00 
+ 1975                 		.ascii "devid_recver\000"
+ 1976 0003 55 41 52 54 	.LASF21:
+ 1976      5F 42 55 46 
+ 1976      5F 53 49 5A 
+ 1976      45 5F 42 59 
+ 1976      54 45 53 5F 
+ 1977                 		.ascii "CUSTOM_REQ_DEVID\000"
+ 1978 000f 64 65 76 69 	.LASF6:
+ 1978      64 00 
+ 1979                 		.ascii "short int\000"
+ 1980 0012 73 65 6E 64 	.LASF20:
+ 1980      44 61 74 61 
+ 1980      00 
+ 1981                 		.ascii "CSR_DEVICE_INFO_RESET\000"
+ 1982 0016 64 65 76 69 	.LASF11:
+ 1982      64 5F 72 65 
+ 1982      63 76 65 72 
+ 1982      00 
+ 1983                 		.ascii "UART_BUF_SIZE_BYTES_64\000"
+ 1984 001d 43 55 53 54 	.LASF15:
+ 1984      4F 4D 5F 52 
+ 1984      45 51 5F 44 
+ 1984      45 56 49 44 
+ 1984      00 
+ 1985                 		.ascii "uart_data_unpacked\000"
+ 1986 0025 73 68 6F 72 	.LASF35:
+ 1986      74 20 69 6E 
+ 1986      74 00 
+ 1987                 		.ascii "timeChar\000"
+ 1988 002a 43 53 52 5F 	.LASF45:
+ 1988      44 45 56 49 
+ 1988      43 45 5F 49 
+ 1988      4E 46 4F 5F 
+ 1988      52 45 53 45 
+ 1989                 		.ascii "g_queue\000"
+ 1990 0035 55 41 52 54 	.LASF14:
+ 1990      5F 42 55 46 
+ 1990      5F 53 49 5A 
+ 1990      45 5F 42 59 
+ 1990      54 45 53 5F 
+ 1991                 		.ascii "uart_data_packed\000"
+ 1992 0041 75 61 72 74 	.LASF47:
+ 1992      5F 64 61 74 
+ 1992      61 5F 75 6E 
+ 1992      70 61 63 6B 
+ 1992      65 64 00 
+ 1993                 		.ascii "heater_status\000"
+ 1994 004a 74 69 6D 65 	.LASF1:
+ 1994      43 68 61 72 
+ 1994      00 
+ 1995                 		.ascii "uint16\000"
+ 1996 004f 67 5F 71 75 	.LASF29:
+ 1996      65 75 65 00 
+ 1997                 		.ascii "HEATER_STATUS_T\000"
+ 1998 0053 75 61 72 74 	.LASF41:
+ 1998      5F 64 61 74 
+ 1998      61 5F 70 61 
+ 1998      63 6B 65 64 
+ 1998      00 
+ 1999                 		.ascii "ok_to_commit\000"
+ 2000 005b 68 65 61 74 	.LASF0:
+ 2000      65 72 5F 73 
+ 2000      74 61 74 75 
+ 2000      73 00 
+ 2001                 		.ascii "uint8\000"
+ 2002 0062 75 69 6E 74 	.LASF50:
+ 2002      31 36 00 
+ 2003                 		.ascii "meshOFFSleepTimeMin\000"
+ 2004 0066 48 45 41 54 	.LASF46:
+ 2004      45 52 5F 53 
+ 2004      54 41 54 55 
+ 2004      53 5F 54 00 
+ 2005                 		.ascii "currentHeaterStatus\000"
+ 2006 006e 6F 6B 5F 74 	.LASF26:
+ 2006      6F 5F 63 6F 
+ 2006      6D 6D 69 74 
+ 2006      00 
+ 2007                 		.ascii "heater_status_search\000"
+ 2008 0074 75 69 6E 74 	.LASF8:
+ 2008      38 00 
+ 2009                 		.ascii "bool\000"
+ 2010 0077 6D 65 73 68 	.LASF54:
+ 2010      4F 46 46 53 
+ 2010      6C 65 65 70 
+ 2010      54 69 6D 65 
+ 2010      4D 69 6E 00 
+ 2011                 		.ascii "continueToRecv\000"
+ 2012 0081 63 75 72 72 	.LASF33:
+ 2012      65 6E 74 48 
+ 2012      65 61 74 65 
+ 2012      72 53 74 61 
+ 2012      74 75 73 00 
+ 2013                 		.ascii "cmdData\000"
+ 2014 008b 68 65 61 74 	.LASF56:
+ 2014      65 72 5F 73 
+ 2014      74 61 74 75 
+ 2014      73 5F 73 65 
+ 2014      61 72 63 68 
+ 2015                 		.ascii "txDataLength\000"
+ 2016 0096 62 6F 6F 6C 	.LASF55:
+ 2016      00 
+ 2017                 		.ascii "inputNumberOfSensor\000"
+ 2018 0098 63 6F 6E 74 	.LASF10:
+ 2018      69 6E 75 65 
+ 2018      54 6F 52 65 
+ 2018      63 76 00 
+ 2019                 		.ascii "UART_BUF_SIZE_BYTES_32\000"
+ 2020 00a0 63 6D 64 44 	.LASF18:
+ 2020      61 74 61 00 
+ 2021                 		.ascii "CSR_DEVICE_INFO_RSP\000"
+ 2022 00a4 74 78 44 61 	.LASF12:
+ 2022      74 61 4C 65 
+ 2022      6E 67 74 68 
+ 2022      00 
+ 2023                 		.ascii "UART_BUF_SIZE_BYTES_128\000"
+ 2024 00aa 69 6E 70 75 	.LASF7:
+ 2024      74 4E 75 6D 
+ 2024      62 65 72 4F 
+ 2024      66 53 65 6E 
+ 2024      73 6F 72 00 
+ 2025                 		.ascii "long int\000"
+ 2026 00b4 55 41 52 54 	.LASF66:
+ 2026      5F 42 55 46 
+ 2026      5F 53 49 5A 
+ 2026      45 5F 42 59 
+ 2026      54 45 53 5F 
+ 2027                 		.ascii "removeall\000"
+ 2028 00c0 43 53 52 5F 	.LASF43:
+ 2028      44 45 56 49 
+ 2028      43 45 5F 49 
+ 2028      4E 46 4F 5F 
+ 2028      52 53 50 00 
+ 2029                 		.ascii "rx_buffer\000"
+ 2030 00ca 55 41 52 54 	.LASF67:
+ 2030      5F 42 55 46 
+ 2030      5F 53 49 5A 
+ 2030      45 5F 42 59 
+ 2030      54 45 53 5F 
+ 2031                 		.ascii "getdata\000"
+ 2032 00d6 6C 6F 6E 67 	.LASF40:
+ 2032      20 69 6E 74 
+ 2032      00 
+ 2033                 		.ascii "byte\000"
+ 2034 00da 72 65 6D 6F 	.LASF22:
+ 2034      76 65 61 6C 
+ 2034      6C 00 
+ 2035                 		.ascii "CUSTOM_REC_DEVID\000"
+ 2036 00df 72 78 5F 62 	.LASF49:
+ 2036      75 66 66 65 
+ 2036      72 00 
+ 2037                 		.ascii "meshONNotSleepTimeMin\000"
+ 2038 00e4 67 65 74 64 	.LASF31:
+ 2038      61 74 61 00 
+ 2039                 		.ascii "length\000"
+ 2040 00e8 62 79 74 65 	.LASF44:
+ 2040      00 
+ 2041                 		.ascii "tx_buffer\000"
+ 2042 00eb 43 55 53 54 	.LASF57:
+ 2042      4F 4D 5F 52 
+ 2042      45 43 5F 44 
+ 2042      45 56 49 44 
+ 2042      00 
+ 2043                 		.ascii "endOfCmd_tid\000"
+ 2044 00f3 6D 65 73 68 	.LASF2:
+ 2044      4F 4E 4E 6F 
+ 2044      74 53 6C 65 
+ 2044      65 70 54 69 
+ 2044      6D 65 4D 69 
+ 2045                 		.ascii "unsigned char\000"
+ 2046 00fe 6C 65 6E 67 	.LASF62:
+ 2046      74 68 00 
+ 2047                 		.ascii "devidreq\000"
+ 2048 0102 74 78 5F 62 	.LASF19:
+ 2048      75 66 66 65 
+ 2048      72 00 
+ 2049                 		.ascii "CSR_DEVICE_INFO_SET\000"
+ 2050 0107 65 6E 64 4F 	.LASF48:
+ 2050      66 43 6D 64 
+ 2050      5F 74 69 64 
+ 2050      00 
+ 2051                 		.ascii "receive_delay_tid\000"
+ 2052 010d 75 6E 73 69 	.LASF5:
+ 2052      67 6E 65 64 
+ 2052      20 63 68 61 
+ 2052      72 00 
+ 2053                 		.ascii "signed char\000"
+ 2054 0114 64 65 76 69 	.LASF28:
+ 2054      64 72 65 71 
+ 2054      00 
+ 2055                 		.ascii "heater_status_normal\000"
+ 2056 0119 43 53 52 5F 	.LASF9:
+ 2056      44 45 56 49 
+ 2056      43 45 5F 49 
+ 2056      4E 46 4F 5F 
+ 2056      53 45 54 00 
+ 2057                 		.ascii "unsigned int\000"
+ 2058 0123 72 65 63 65 	.LASF72:
+ 2058      69 76 65 5F 
+ 2058      64 65 6C 61 
+ 2058      79 5F 74 69 
+ 2058      64 00 
+ 2059                 		.ascii "uartInit\000"
+ 2060 012c 73 69 67 6E 	.LASF58:
+ 2060      65 64 20 63 
+ 2060      68 61 72 00 
+ 2061                 		.ascii "start\000"
+ 2062 0132 68 65 61 74 	.LASF17:
+ 2062      65 72 5F 73 
+ 2062      74 61 74 75 
+ 2062      73 5F 6E 6F 
+ 2062      72 6D 61 6C 
+ 2063                 		.ascii "CSR_DEVICE_INFO_REQ\000"
+ 2064 013c 75 6E 73 69 	.LASF69:
+ 2064      67 6E 65 64 
+ 2064      20 69 6E 74 
+ 2064      00 
+ 2065                 		.ascii "GNU C 4.3.4 CSR version 24 for xap [1865517]\000"
+ 2066 0143 75 61 72 74 	.LASF59:
+ 2066      49 6E 69 74 
+ 2066      00 
+ 2067                 		.ascii "stop\000"
+ 2068 0147 73 74 61 72 	.LASF39:
+ 2068      74 00 
+ 2069                 		.ascii "char\000"
+ 2070 014a 43 53 52 5F 	.LASF71:
+ 2070      44 45 56 49 
+ 2070      43 45 5F 49 
+ 2070      4E 46 4F 5F 
+ 2070      52 45 51 00 
+ 2071                 		.ascii "C:\\CSR_uEnergy_SDK-2.4.5.13\\apps\\CSRmesh-1.3-Examples-Applications_icp\\applications\\W
+ 2072 0154 47 4E 55 20 	.LASF16:
+ 2072      43 20 34 2E 
+ 2072      33 2E 34 20 
+ 2072      43 53 52 20 
+ 2072      76 65 72 73 
+ 2073                 		.ascii "timer_id\000"
+ 2074 016b 73 74 6F 70 	.LASF3:
+ 2074      00 
+ 2075                 		.ascii "short unsigned int\000"
+ 2076 016d 63 68 61 72 	.LASF75:
+ 2076      00 
+ 2077                 		.ascii "uartTxDataCallback\000"
+ 2078 0170 43 3A 5C 43 	.LASF74:
+ 2078      53 52 5F 75 
+ 2078      45 6E 65 72 
+ 2078      67 79 5F 53 
+ 2078      44 4B 2D 32 
+ 2079                 		.ascii "sendPendingData\000"
+ 2080 01a6 74 69 6D 65 	.LASF64:
+ 2080      72 5F 69 64 
+ 2080      00 
+ 2081                 		.ascii "searchstop\000"
+ 2082 01aa 73 68 6F 72 	.LASF42:
+ 2082      74 20 75 6E 
+ 2082      73 69 67 6E 
+ 2082      65 64 20 69 
+ 2082      6E 74 00 
+ 2083                 		.ascii "data\000"
+ 2084 01b4 75 61 72 74 	.LASF65:
+ 2084      54 78 44 61 
+ 2084      74 61 43 61 
+ 2084      6C 6C 62 61 
+ 2084      63 6B 00 
+ 2085                 		.ascii "delete\000"
+ 2086 01bd 73 65 6E 64 	.LASF4:
+ 2086      50 65 6E 64 
+ 2086      69 6E 67 44 
+ 2086      61 74 61 00 
+ 2087                 		.ascii "long unsigned int\000"
+ 2088 01c5 73 65 61 72 	.LASF36:
+ 2088      63 68 73 74 
+ 2088      6F 70 00 
+ 2089                 		.ascii "devidchar\000"
+ 2090 01cb 64 61 74 61 	.LASF30:
+ 2090      00 
+ 2091                 		.ascii "p_rx_buffer\000"
+ 2092 01cd 64 65 6C 65 	.LASF60:
+ 2092      74 65 00 
+ 2093                 		.ascii "conreq\000"
+ 2094 01d1 6C 6F 6E 67 	.LASF25:
+ 2094      20 75 6E 73 
+ 2094      69 67 6E 65 
+ 2094      64 20 69 6E 
+ 2094      74 00 
+ 2095                 		.ascii "heater_status_init\000"
+ 2096 01da 64 65 76 69 	.LASF32:
+ 2096      64 63 68 61 
+ 2096      72 00 
+ 2097                 		.ascii "p_additional_req_data_length\000"
+ 2098 01df 70 5F 72 78 	.LASF61:
+ 2098      5F 62 75 66 
+ 2098      66 65 72 00 
+ 2099                 		.ascii "sonxoffx\000"
+ 2100 01e5 63 6F 6E 72 	.LASF27:
+ 2100      65 71 00 
+ 2101                 		.ascii "heater_status_register\000"
+ 2102 01e8 68 65 61 74 	.LASF23:
+ 2102      65 72 5F 73 
+ 2102      74 61 74 75 
+ 2102      73 5F 69 6E 
+ 2102      69 74 00 
+ 2103                 		.ascii "CUSTOM_REQ_DATA\000"
+ 2104 01f2 70 5F 61 64 	.LASF51:
+ 2104      64 69 74 69 
+ 2104      6F 6E 61 6C 
+ 2104      5F 72 65 71 
+ 2104      5F 64 61 74 
+ 2105                 		.ascii "clockMeshON_tid\000"
+ 2106 0200 73 6F 6E 78 	.LASF24:
+ 2106      6F 66 66 78 
+ 2106      00 
+ 2107                 		.ascii "CUSTOM_SET_MESH_PERIOD\000"
+ 2108 0205 68 65 61 74 	.LASF63:
+ 2108      65 72 5F 73 
+ 2108      74 61 74 75 
+ 2108      73 5F 72 65 
+ 2108      67 69 73 74 
+ 2109                 		.ascii "devidread\000"
+ 2110 0210 43 55 53 54 	.LASF68:
+ 2110      4F 4D 5F 52 
+ 2110      45 51 5F 44 
+ 2110      41 54 41 00 
+ 2111                 		.ascii "getdata0\000"
+ 2112 0218 63 6C 6F 63 	.LASF70:
+ 2112      6B 4D 65 73 
+ 2112      68 4F 4E 5F 
+ 2112      74 69 64 00 
+ 2113                 		.ascii "uartio.c\000"
+ 2114 0220 43 55 53 54 	.LASF73:
+ 2114      4F 4D 5F 53 
+ 2114      45 54 5F 4D 
+ 2114      45 53 48 5F 
+ 2114      50 45 52 49 
+ 2115                 		.ascii "uartRxDataCallback\000"
+ 2116 022c 64 65 76 69 	.LASF52:
+ 2116      64 72 65 61 
+ 2116      64 00 
+ 2117                 		.ascii "clockMeshOFF_tid\000"
+ 2118 0231 67 65 74 64 		.ident	"GCC: (GNU) 4.3.4 CSR version 24 for xap [1865517]"
+ 2118      61 74 61 30 
+ 2118      00 
+ 2119                 	...
