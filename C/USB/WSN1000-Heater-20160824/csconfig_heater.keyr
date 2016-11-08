@@ -1,0 +1,69 @@
+>DECIMAL_CS_VERSION=67
+// (0001) - Bluetooth device address
+&BDADDR = 22ad 5b03 0002
+// (0002) - Crystal frequency trim
+&CRYSTAL_FTRIM = 0020
+// (0003) - Radio receiver's RX ADC config
+&RADIO_RX_ADC_CONFIG = 0000 0000 0000
+// (0004) - User keys
+&USER_KEYS = 0004 0001 1e12 1e5a 0002 0069 004a 0000
+// (0005) - UART connection speed
+&UART_RATE = 01d9
+// (0006) - UART configuration
+&UART_CONFIG = 0000
+// (0007) - Transmit power level
+&TX_POWER_LEVEL = 0004
+// (0008) - Report faults to host
+&ERR_REPORT_FAULT = f7ff 3fe5
+// (0009) - Cause faults to panic
+&ERR_PANIC = ffff 3fff
+// (000a) - Watchdog timeout
+&WD_TIMEOUT = 7530
+// (000b) - Watchdog period
+&WD_PERIOD = 3a98
+// (000c) - Sleep mode
+&SLEEP_MODE = 0001
+// (000d) - Sleep clock accuracy allowance
+&SLEEP_CLOCK_ACCURACY = 009d
+// (000e) - Sleep clock debug signal
+&DEBUG_SLEEP_CLOCK = 000f
+// (000f) - Radio RX event debug signal
+&DEBUG_RADIO_RX = 0009
+// (0010) - Radio TX event debug signal
+&DEBUG_RADIO_TX = 000a
+// (0011) - Identity Root
+&IDENTITY_ROOT = 0000 0000 0000 0000 0000 0000 0000 0000
+// (0012) - Encryption Root
+&ENCRYPTION_ROOT = 0000 0000 0000 0000 0000 0000 0000 0000
+// (0013) - 32kHz crystal drive level
+&XTAL32K_LEVEL = 000a
+// (0014) - 16MHz crystal drive level
+&XTAL16M_LEVEL = 800f
+// (0015) - 16MHz crystal wakeup parameters
+&XTAL16M_WAKEUP = 4744 096d 0a35
+// (0016) - Battery "low" threshold voltage
+&BATTERY_THRESHOLD = 09c4
+// (0017) - NVM Start Address
+&NVM_START_ADDRESS = f7df
+// (0018) - NVM Size
+&NVM_SIZE = 0020
+// (0019) - SPI Flash Block Size
+&SPI_FLASH_BLOCK_SIZE = 1000
+// (001a) - NVM SPI Flash Number of Blocks
+&NVM_NUM_SPI_BLOCKS = 0001
+// (001b) - I2C EEPROM Initialisation Time
+&I2C_EEPROM_INIT_TIME = 07d0
+// (001c) - SPI Flash Initialisation Time
+&SPI_FLASH_INIT_TIME = 2710
+// (001d) - Thermometer offset adjustment
+&TEMPERATURE_ADJUST = 0000
+// (001e) - Radio Data Window (Minimum)
+&RADIO_DATA_WIN_MIN = ff38
+// (001f) - Radio Data Window (Maximum)/
+&RADIO_DATA_WIN_MAX = 005a
+// (0020) - Radio Sleep Window (Minimum)
+&RADIO_SLEEP_WIN_MIN = ff06
+// (0021) - Radio Sleep Window (Maximum)/
+&RADIO_SLEEP_WIN_MAX = 0afd
+// (0022) - I2C Pull resistors config
+&I2C_DISABLED_PULL_MODE = 0005
