@@ -46,6 +46,8 @@ UART_DECLARE_BUFFER(tx_buffer, TX_BUFFER_SIZE);
 /*20160612*/
 uint16 txDataLength=0;
 timer_id endOfCmd_tid=TIMER_INVALID;
+/*20161109*/
+bool receiveDevidInProgress;
 /*20160725*/
 bool eof=FALSE;
 char start[7] ="STRREC|";
@@ -161,6 +163,7 @@ static uint16 uartRxDataCallback(void   *p_rx_buffer,
                 TimerDelete(clockMeshOFF_tid);
                 uint8 sendData[3];char timeChar[2];
                 sendData[0]=REQ_ID_CMD;
+                receiveDevidInProcess=TRUE;//20161109:indicate being receving devid
                 
                 StrNCopy(timeChar,g_queue+2,2);
                 sendData[1]=string2int(timeChar,2);//meshONTime(ascii->uint8)

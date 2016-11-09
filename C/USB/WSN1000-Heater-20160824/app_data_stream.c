@@ -486,12 +486,15 @@ extern void handleCSRmeshDataStreamDataInd(CSR_MESH_STREAM_EVENT_T *p_event)
 
             case CUSTOM_REC_DEVID:            
             {
-                uint16 rx_data;                               
-                MemCopyPack(&rx_data,p_event->data+1,2);
-                storeDevIDtoNVM(rx_data);
-                DebugWriteString("\r\nReceived DevID:");
-                DebugWriteUint16(rx_data);
-                //StreamReset();//20160816
+                if(receiveDevidInProcess==TRUE)  //20161109
+                {
+                    uint16 rx_data;                               
+                    MemCopyPack(&rx_data,p_event->data+1,2);
+                    storeDevIDtoNVM(rx_data);
+                    DebugWriteString("\r\nReceived DevID:");
+                    DebugWriteUint16(rx_data);
+                    //StreamReset();//20160816
+                }
             }
             break;
         }

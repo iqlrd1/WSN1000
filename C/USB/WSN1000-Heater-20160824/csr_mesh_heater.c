@@ -982,6 +982,7 @@ void clockMeshONTimerHandler(timer_id tid)
     tid=TIMER_INVALID;
     SleepModeChange(sleep_mode_never);
     CsrMeshEnableListening(TRUE);
+    receiveDevidInProcess=FALSE;
 
     DEBUG_STR("[$READY]");
     PioSetMode(MESHON_IND,pio_mode_user);
