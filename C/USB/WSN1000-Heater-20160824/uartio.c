@@ -177,7 +177,7 @@ static uint16 uartRxDataCallback(void   *p_rx_buffer,
                 DebugWriteString("[SEARCHON");printInDecimal(sendData[1]);
                 DebugWriteString("OFF");printInDecimal(sendData[2]);
                 DebugWriteString("]\r\n");
-                TimerCreate(10*SECOND,TRUE,clockMeshONTimerHandler);
+                TimerCreate(60*SECOND,TRUE,clockMeshONTimerHandler);
             }
             /*else if( MemCmp(search,g_queue,sizeof(search)/sizeof(uint8)) ==0 )  //SEARCH
             {
