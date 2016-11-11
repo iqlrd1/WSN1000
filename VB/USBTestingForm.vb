@@ -15,6 +15,8 @@ Public Class USBTestingForm
     Const cmdSearch As String = "SEARCH60"
     Dim devIDSearchTime = 60
 
+    Dim meshReadyCurrentTime As Date
+
     '-------Check USB Registry-------
     Const WM_DEVICECHANGE = &H219
     Const DBT_DEVICEARRIVAL = &H8000
@@ -50,8 +52,9 @@ Public Class USBTestingForm
     Dim dtbSensorStatusrow As DataRow
     Dim dtbDevIDList As New DataTable("DevIDList")
     Dim devIDArray() As String
-    Dim getSensorDataCounter As Integer
-    Dim getSensorDataCurrentDevIDArrayCount As Integer
+    Dim devIDArrayPending() As String
+    Dim getSensorDataCounter As Integer 'counter for each devid get sensor data trial (default 3 times)
+    Dim getSensorDataDevIDArrayPointer As Integer 'pointer, point to the devID array table to indicate the current devid to get data
     '--------------------------------
 
     Dim meshONSecCounter As Integer = 0
@@ -87,6 +90,8 @@ Public Class USBTestingForm
 
     Dim comPortStatus As comStatus
     Dim sentCommand As sentCmd
+    Private updateFinishFlag As Boolean
+    Dim meshIsON As Boolean = False
 
 
     Private Sub USBTestingForm_Load(sender As Object, e As EventArgs) Handles MyBase.Load
@@ -139,41 +144,14 @@ Public Class USBTestingForm
 
         '----Init Timer--------
         'timerStatusCheck.Interval = 5000
-        timerStatusCheck.Start()
+        'timerStatusCheck.Start()
         '-----------------------------
 
         '----Init System status------
         comPortConnectStatusChange(comStatus.comDisconnected)
         '--------------------------------
-#If 0 Then 'test string
-        Dim recData() As String = {"SD8001DT30.23TH60.75HP101PE", "SD8002DT28.23TH75.75HP98PE", "SD8003DT29.23TH55.75HP80PE"}
-
-
-
-        For k As Integer = 1 To 100
-            For Each value As String In recData
-                If value.StartsWith("S") Then
-                    If value.EndsWith("E") Then
-                        devID = Convert.ToInt16(value.Substring(value.IndexOf("D") + 1, value.LastIndexOf("D") - value.IndexOf("D") - 1))
-                        'Debug.WriteLine(devID)
-                        tempValue = Convert.ToDouble(value.Substring(value.IndexOf("T") + 1, value.LastIndexOf("T") - value.IndexOf("T") - 1))
-                        'Debug.WriteLine(tempValue)
-                        humiValue = Convert.ToDouble(value.Substring(value.IndexOf("H") + 1, value.LastIndexOf("H") - value.IndexOf("H") - 1))
-                        'Debug.WriteLine(humiValue)
-                        pressValue = Convert.ToInt16(value.Substring(value.IndexOf("P") + 1, value.LastIndexOf("P") - value.IndexOf("P") - 1))
-                        'Debug.WriteLine(pressValue)
-                        dtbRecData.Rows.Add(devID, DateTime.Today.ToString("yyyy/MM/dd"), DateTime.Now.ToString("HH:mm"), tempValue, humiValue, pressValue)
-                        addDevIDToList()
-                    End If
-                End If
-            Next value
-        Next k
-
-        dgvRecData.DataSource = dtbRecData
-
-        dgvRecData.Refresh()
-#End If
     End Sub '-----eof form load-----
+
     Protected Overrides Sub WndProc(ByRef m As System.Windows.Forms.Message)
 
         If m.Msg = WM_DEVICECHANGE Then
@@ -231,6 +209,7 @@ Public Class USBTestingForm
                 dtbSensorStatus.Clear()
                 dtbDevIDList.Clear()
                 Erase devIDArray
+                Erase devIDArrayPending
                 numberOfDevID = 0
                 lblNumOfDevID.Text = 0
                 statusNVMReadFinish = False
@@ -239,7 +218,7 @@ Public Class USBTestingForm
                 nudOFFInterval.Enabled = True
                 nudONInterval.Enabled = True
 
-                timerMeshON.Dispose()
+                timerGetSensorData.Dispose()
                 timerMeshOFF.Dispose()
 
             Case comStatus.comConnecting
@@ -424,7 +403,7 @@ Public Class USBTestingForm
                 nudONInterval.Enabled = False
                 btnAddDevID.Enabled = False
                 getSensorDataCounter = 0
-                getSensorDataCurrentDevIDArrayCount = 0
+                getSensorDataDevIDArrayPointer = 0
             ElseIf btnStartRec.Text = "Stop Rec" Then
                 sendCommand("STPREC")
                 btnStartRec.Text = "Start Rec"
@@ -434,7 +413,7 @@ Public Class USBTestingForm
                 btnClear.Enabled = True
                 btnAddDevID.Enabled = True
                 getSensorDataCounter = 0
-                getSensorDataCurrentDevIDArrayCount = 0
+                getSensorDataDevIDArrayPointer = 0
             End If
         Else
             MsgBox("Please connect to USB dongle")
@@ -474,6 +453,7 @@ Public Class USBTestingForm
                 dtbDevIDList.Clear()
                 dtbSensorStatus.Clear()
                 Erase devIDArray
+                Erase devIDArrayPending
                 statusNVMReadFinish = False
                 lblNumOfDevID.Text = "0"
                 numberOfDevID = 0
@@ -497,7 +477,7 @@ Public Class USBTestingForm
                 End If
                 'sendCommand("ON" + CStr(nudONInterval.Value) + "OFF" + CStr(nudOFFInterval.Value))
                 nudONInterval.Enabled = False
-                nudOFFInterval.Enabled = False                
+                nudOFFInterval.Enabled = False
             End If
         Else
             btnSearch.Text = "SEARCH"
@@ -544,7 +524,7 @@ Public Class USBTestingForm
         For Each sp As String In My.Computer.Ports.SerialPortNames
             cboCOMPort.Items.Add(sp)
         Next
-        cboCOMPort.SelectedIndex = 0
+        'cboCOMPort.SelectedIndex = 0
         comPORT = cboCOMPort.SelectedItem
     End Sub
 
@@ -558,39 +538,6 @@ Public Class USBTestingForm
             GC.Collect()
         End Try
     End Sub
-#If 0 Then 'another excel export method
-    Private Sub btnExcel_Click(sender As Object, e As EventArgs)
-
-        Dim myExcel As Excel.Application = New Microsoft.Office.Interop.Excel.Application()
-
-        If myExcel Is Nothing Then
-            MessageBox.Show("Excel is not properly installed!!")
-        Else
-            MessageBox.Show("Excel is installed!!")
-        End If
-
-        Dim excelWorkBook As Excel.Workbook
-        Dim excelWorkSheet As Excel.Worksheet
-        Dim misValue As Object = System.Reflection.Missing.Value
-
-        excelWorkBook = myExcel.Workbooks.Add(misValue)
-        excelWorkSheet = excelWorkBook.Sheets("sheet1")
-        excelWorkSheet.Cells(1, 1) = "Sheet 1 content"
-
-        excelWorkBook.SaveAs("c:\csharp-Excel.xls", Excel.XlFileFormat.xlWorkbookNormal, misValue, misValue, misValue, misValue,
-         Excel.XlSaveAsAccessMode.xlExclusive, misValue, misValue, misValue, misValue, misValue)
-        excelWorkBook.SaveAs()
-        excelWorkBook.Close(True, misValue, misValue)
-        myExcel.Quit()
-
-        releaseObject(excelWorkSheet)
-        releaseObject(excelWorkBook)
-        releaseObject(myExcel)
-
-        MessageBox.Show("Excel file created")
-    End Sub
-#End If
-
     Private Sub dtExportToExcel(ByVal dataTable As DataTable, ByVal filepath As String)
 
         Dim myExcel As Excel.Application = New Microsoft.Office.Interop.Excel.Application()
@@ -735,10 +682,10 @@ Public Class USBTestingForm
         Try
 
             If mySerialPort.IsOpen = False Then
-            mySerialPort.Open()
-        End If
+                mySerialPort.Open()
+            End If
 
-        While mySerialPort.BytesToRead > 0
+            While mySerialPort.BytesToRead > 0
                 trimSPData(mySerialPort.ReadByte)
             End While
         Catch ex As Exception
@@ -747,6 +694,7 @@ Public Class USBTestingForm
     End Sub
 
     Private Sub trimSPData(ByVal spdata As Byte)
+
         Select Case spdata
             Case Encoding.ASCII.GetBytes("[")(0)
                 tempList.Clear()
@@ -761,7 +709,6 @@ Public Class USBTestingForm
                         tempList.RemoveAt(tempList.Count - 1)
                         Dim d As New recDataHandle(AddressOf exeReceivedCPData)
                         Me.Invoke(d, New Object() {tempList.ToArray()})
-                        Dim txtBox As New txtBoxHandler(AddressOf outTotxtBox)
                     End If
                     statusComportCMDRecInProgress = False
                     tempList.Clear()
@@ -802,12 +749,12 @@ Public Class USBTestingForm
                     drr("Temp") = tempValue
                     drr("timeTemp") = DateTime.Now
                     drr("tempRecCounter") = drr("tempRecCounter") + 1
-                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 120 Then
-                        drr("tempRecCounter") = 0
-                        drr("humiRecCounter") = 0
-                        drr("pressRecCounter") = 0
+                    Dim lastTimeUpdateTable As Date
+                    lastTimeUpdateTable = drr("lasttimeUpdateRecTable")
+                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateTime.Compare(lastTimeUpdateTable, meshReadyCurrentTime) < 0 Then
+                        'If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And lastTimeUpdateTable.TimeOfDay < meshReadyCurrentTime.TimeOfDay Then
                         updateData(devID)
-                        drr("lasttimeUpdateRecTable") = DateTime.Now
+                        resetdtbSensorStatus(devID)
                     End If
                 End If
             End If
@@ -822,17 +769,13 @@ Public Class USBTestingForm
                     drr("Humi") = humiValue
                     drr("timeHumi") = DateTime.Now
                     drr("humiRecCounter") = drr("humiRecCounter") + 1
-                    Console.WriteLine(drr("lasttimeUpdateRecTable"))
-                    Console.WriteLine(DateTime.Now)
-                    Console.WriteLine(DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now))
-                    Console.WriteLine(drr("humiRecCounter"))
-
-                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 120 Then
-                        drr("tempRecCounter") = 0
-                        drr("humiRecCounter") = 0
-                        drr("pressRecCounter") = 0
+                    Dim lastTimeUpdateTable As Date
+                    lastTimeUpdateTable = drr("lasttimeUpdateRecTable")
+                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateTime.Compare(lastTimeUpdateTable, meshReadyCurrentTime) < 0 Then
+                        'If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And lastTimeUpdateTable.TimeOfDay < meshReadyCurrentTime.TimeOfDay Then
+                        'DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 180 Then
                         updateData(devID)
-                        drr("lasttimeUpdateRecTable") = DateTime.Now
+                        resetdtbSensorStatus(devID)
                     End If
                 End If
             End If
@@ -846,12 +789,13 @@ Public Class USBTestingForm
                     drr("Press") = pressValue
                     drr("timePress") = DateTime.Now
                     drr("pressRecCounter") = drr("pressRecCounter") + 1
-                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 120 Then
-                        drr("tempRecCounter") = 0
-                        drr("humiRecCounter") = 0
-                        drr("pressRecCounter") = 0
+                    Dim lastTimeUpdateTable As Date
+                    lastTimeUpdateTable = drr("lasttimeUpdateRecTable")
+                    If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And DateTime.Compare(lastTimeUpdateTable, meshReadyCurrentTime) < 0 Then
+                        'If drr("tempRecCounter") > 0 And drr("humiRecCounter") > 0 And drr("pressRecCounter") > 0 And lastTimeUpdateTable.TimeOfDay < meshReadyCurrentTime.TimeOfDay Then
+                        'DateDiff(DateInterval.Second, drr("lasttimeUpdateRecTable"), DateTime.Now) > 180 Then
                         updateData(devID)
-                        drr("lasttimeUpdateRecTable") = DateTime.Now
+                        resetdtbSensorStatus(devID)
                     End If
                 End If
             End If
@@ -918,20 +862,51 @@ Public Class USBTestingForm
 
         End If
 
-        If cmd.StartsWith("$READY") And dtbSensorStatus.Rows.Count > 0 Then 'need to chech if sensors are read from nvm
-            meshONSecCounter = 0
-            timerMeshON.Start()
+        If cmd.StartsWith("$READY") And dtbSensorStatus.Rows.Count > 0 And meshIsON = False Then 'need to check if sensors are read from nvm
+            meshIsON = True
+            devIDArrayPending = devIDArray
+            timerGetSensorData.Start()
+            meshReadyCurrentTime = DateTime.Now
             timerMeshOFF.Dispose()
-
+            updateFinishFlag = False
+            getSensorDataCounter += 1
+            getSensorDataDevIDArrayPointer = 0
+            sendCommand("G" + devIDArrayPending(getSensorDataDevIDArrayPointer))
         End If
 
-        If cmd.StartsWith("$END") And dtbSensorStatus.Rows.Count > 0 Then 'need to chech if sensors are read from nvm
+        If cmd.StartsWith("$END") And dtbSensorStatus.Rows.Count > 0 And meshIsON = True Then 'need to chech if sensors are read from nvm
+            meshIsON = False
             meshOFFSecCounter = 0
             timerMeshOFF.Start()
-            timerMeshON.Dispose()
-            meshONSecCounter = 0
+            timerGetSensorData.Dispose()
+            'meshONSecCounter = 0
             getSensorDataCounter = 0
-            getSensorDataCurrentDevIDArrayCount = 0
+            getSensorDataDevIDArrayPointer = 0
+
+
+            If devIDArrayPending.Count > 0 Then
+                Dim drr As DataRow
+                Dim problemDevID As String
+                If dtbSensorStatus.Rows.Count > 0 Then
+                    For i As Integer = 0 To devIDArrayPending.Count - 1
+                        problemDevID = devIDArrayPending(i)
+                        drr = dtbSensorStatus.Rows.Find(problemDevID)
+                        If drr("Status") <> "Data missing" Then
+                            drr("Status") = "Data missing"
+                            For k As Integer = 0 To dgvDevIDList.Rows.Count - 1
+                                For j As Integer = 0 To dgvDevIDList.Columns.Count - 1
+                                    Dim CellChange As String = dgvDevIDList.Item(j, k).Value.ToString().Trim()
+                                    If CellChange.Contains(drr("DevID")) = True Then
+                                        dgvDevIDList.Item(j, k).Value = "ER" + CStr(drr("DevID"))
+                                        dgvDevIDList.Item(j, k).Style.ForeColor = Color.Red
+                                        dgvDevIDList.ClearSelection()
+                                    End If
+                                Next
+                            Next
+                        End If
+                    Next
+                End If
+            End If
         End If
 
         If cmd.StartsWith("REMOVEALLOK") Then
@@ -950,7 +925,7 @@ Public Class USBTestingForm
             btnClear.Enabled = True
             btnAddDevID.Enabled = True
             getSensorDataCounter = 0
-            getSensorDataCurrentDevIDArrayCount = 0
+            getSensorDataDevIDArrayPointer = 0
         End If
 
 
@@ -992,26 +967,66 @@ Public Class USBTestingForm
             dgvRecData.DataSource = dtbRecData
             dgvRecData.Refresh()
             Console.Write("OK")
-            drr("tempRecCounter") = 0
-            drr("humiRecCounter") = 0
-            drr("pressRecCounter") = 0
-            drr("Temp") = 0
-            drr("Humi") = 0
-            drr("Press") = 0
-            drr("Status") = "OK"
 
-            timerMeshON.Stop()
-            meshONSecCounter = 0
-            If getSensorDataCurrentDevIDArrayCount < devIDArray.Count - 1 Then
-                getSensorDataCurrentDevIDArrayCount += 1
-            Else
-                getSensorDataCurrentDevIDArrayCount = 0
-            End If
-            timerMeshON.Start()
+
+            timerGetSensorData.Stop()
+            devIDArrayPending = devIDArrayPending.Where(Function(val) val <> devID).ToArray()
+            getSensorDataCounter = 0
+            'updateGetSensorDataDevIDArrayPointer()
+            timerGetSensorData.Start()
 
             sendCommand("update tb ok !!!")
 
         End If
+    End Sub
+
+    Private Sub updateGetSensorDataDevIDArrayPointer()
+
+        'getSensorDataDevIDArrayPointer += 1
+        If getSensorDataDevIDArrayPointer < devIDArray.Count Then
+            'getSensorDataDevIDArrayPointer += 1
+            Dim drr As DataRow
+            Dim lasttimeUpdate As Date
+            drr = dtbSensorStatus.Rows.Find(devIDArray(getSensorDataDevIDArrayPointer))
+            lasttimeUpdate = drr("lasttimeUpdateRecTable")
+            If lasttimeUpdate.TimeOfDay < meshReadyCurrentTime.TimeOfDay Then
+                Exit Sub
+            Else
+                For k As Integer = 0 To devIDArray.Count - 1
+                    drr = dtbSensorStatus.Rows.Find(devIDArray(k))
+                    lasttimeUpdate = drr("lasttimeUpdateRecTable")
+                    If lasttimeUpdate.TimeOfDay < meshReadyCurrentTime.TimeOfDay Then
+                        getSensorDataDevIDArrayPointer = k
+                        Exit Sub
+                    End If
+                Next
+                updateFinishFlag = True
+            End If
+        Else
+            getSensorDataDevIDArrayPointer = 0
+        End If
+
+
+        'If getSensorDataDevIDArrayPointer < devIDArray.Count - 1 Then
+        'getSensorDataDevIDArrayPointer += 1
+        'getSensorDataCounter = 0
+        'Else
+        'getSensorDataDevIDArrayPointer = 0
+        'End If
+
+    End Sub
+
+    Private Sub resetdtbSensorStatus(devID As String)
+        Dim drr As DataRow
+        drr = dtbSensorStatus.Rows.Find(devID)
+        drr("tempRecCounter") = 0
+        drr("humiRecCounter") = 0
+        drr("pressRecCounter") = 0
+        drr("Temp") = 0
+        drr("Humi") = 0
+        drr("Press") = 0
+        drr("Status") = "OK"
+        drr("lasttimeUpdateRecTable") = DateTime.Now
     End Sub
 
     Private Sub dgvDevIDList_CellMouseClick(sender As Object, e As DataGridViewCellMouseEventArgs) Handles dgvDevIDList.CellMouseClick
@@ -1056,25 +1071,30 @@ Public Class USBTestingForm
         End Try
     End Sub
 
-    Private Sub timerMeshON_Tick(sender As Object, e As EventArgs) Handles timerMeshON.Tick
-        meshONSecCounter += 1
+    Private Sub timerGetSensorData_Tick(sender As Object, e As EventArgs) Handles timerGetSensorData.Tick
         If btnStartRec.Text = "Stop Rec" Then
-            If meshONSecCounter = 5 Or meshONSecCounter = 1 Then
-                If devIDArray.Count > 0 Then
+            If devIDArrayPending.Count - 1 > getSensorDataDevIDArrayPointer Then
+                If getSensorDataCounter < 3 Then
                     getSensorDataCounter += 1
-                    If getSensorDataCounter < 3 Then
-                        sendCommand("G" + devIDArray(getSensorDataCurrentDevIDArrayCount))
-                    Else
-                        getSensorDataCounter = 0
-                        meshONSecCounter = 0
-                        If getSensorDataCurrentDevIDArrayCount < devIDArray.Count - 1 Then
-                            getSensorDataCurrentDevIDArrayCount += 1
-                        Else
-                            getSensorDataCurrentDevIDArrayCount = 0
-                        End If
-                    End If
+                    sendCommand("G" + devIDArrayPending(getSensorDataDevIDArrayPointer))
+                Else
+                    getSensorDataCounter = 0
+                    getSensorDataDevIDArrayPointer += 1
+                    sendCommand("G" + devIDArrayPending(getSensorDataDevIDArrayPointer))
                 End If
+            ElseIf devIDArrayPending.Count - 1 = getSensorDataDevIDArrayPointer Then
+                If getSensorDataCounter < 2 Then
+                    getSensorDataCounter += 1
+                    sendCommand("G" + devIDArrayPending(getSensorDataDevIDArrayPointer))
+                Else
+                    getSensorDataCounter = 0
+                    getSensorDataDevIDArrayPointer = 0
+                End If
+            Else
+                getSensorDataDevIDArrayPointer = 0
             End If
+            'meshONSecCounter = 0
+            'End If
         End If
     End Sub
 
@@ -1087,14 +1107,14 @@ Public Class USBTestingForm
         Dim duration As Integer = nudONInterval.Value * 60
         Dim devID As String = txtDevIDStat.Text
 
-        If timerMeshON.Enabled = False And timerMeshON.Enabled = False Then
+        If timerGetSensorData.Enabled = False And timerGetSensorData.Enabled = False Then
 
-        ElseIf meshONSecCounter = 0 Then
-            syncTime = duration - meshOFFSecCounter - 2
-            sendCommand("D" + devID + "OFF" + CStr(syncTime))
-        ElseIf meshOFFSecCounter = 0 Then
-            syncTime = duration - meshONSecCounter - 2
-            sendCommand("D" + devID + "ON" + CStr(syncTime))
+            'ElseIf meshONSecCounter = 0 Then
+            '    syncTime = duration - meshOFFSecCounter - 2
+            '     sendCommand("D" + devID + "OFF" + CStr(syncTime))
+            '' ElseIf meshOFFSecCounter = 0 Then
+            '     syncTime = duration - meshONSecCounter - 2
+            '    sendCommand("D" + devID + "ON" + CStr(syncTime))
         End If
 
     End Sub
@@ -1103,4 +1123,8 @@ Public Class USBTestingForm
         sendCommand("REMOVEALL")
     End Sub
 
+    Private Sub TextBox1_DoubleClick(sender As Object, e As EventArgs) Handles TextBox1.DoubleClick
+        TextBox1.SelectAll()
+        TextBox1.Copy()
+    End Sub
 End Class
