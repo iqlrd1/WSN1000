@@ -437,7 +437,7 @@ extern void handleCSRmeshDataBlockInd(CSR_MESH_STREAM_EVENT_T *p_event)
                 dat[2]=(uint8)((deviceid_local>>8)&0xff);             
                 currentSensorStatus=SENSOR_STATUS_REGISTER; 
                 //saveSensorStatusToNVM();/**/               
-                TimerCreate(10*SECOND,TRUE,turnONMeshTimerHandler);//20160830
+                TimerCreate(60*SECOND,TRUE,turnONMeshTimerHandler);//20160830
                 sendDataStreamWithCFM(3,deviceid_src,100);//temporarily remove cfm
                 meshONNotSleepTime=dat1[1];
                 meshOFFSleepTime  =dat1[2];
